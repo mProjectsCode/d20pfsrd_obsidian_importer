@@ -30,16 +30,31 @@ namespace d20pfsrd_web_scraper
         
         private static void Main(string[] args)
         {
-            // Crawl all pages
-            // CrawlSitemap();
+            // Read in the content links
+            Console.WriteLine(RunLocation);
+            try
+            {
+                ContentLinksList = File.ReadAllLines(RunLocation + "/contentLinks.txt");
+                ContentLinks = File.ReadAllText(RunLocation + "/contentLinks.txt");
+            }
+            catch (FileNotFoundException)
+            {
+                // Crawl all pages
+                Console.WriteLine("Crawling d20pfsrd");
+                CrawlSitemap();
+                ContentLinksList = File.ReadAllLines(RunLocation + "/contentLinks.txt");
+                ContentLinks = File.ReadAllText(RunLocation + "/contentLinks.txt");
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.Message);
+                Console.WriteLine(e.StackTrace);
+                return;
+            }
 
             // Crawl test page
             // CrawlPage("https://www.d20pfsrd.com/feats/general-feats/aboleth-deceiver/").Save();
 
-
-            Console.WriteLine(RunLocation);
-            ContentLinksList = File.ReadAllLines(RunLocation + "/contentLinks.txt");
-            ContentLinks = File.ReadAllText(RunLocation + "/contentLinks.txt");
 
             MdConverter mdConverter = new MdConverter();
 
@@ -67,7 +82,6 @@ namespace d20pfsrd_web_scraper
                 i++;
             }
             // */
-
 
 
              /*
