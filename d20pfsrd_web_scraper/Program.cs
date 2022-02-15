@@ -66,7 +66,7 @@ internal class Program
         }
         else
         {
-            
+            mdConverter.Headings = JsonConvert.DeserializeObject< Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
             Uri uri = new Uri("https://www.d20pfsrd.com/classes/core-classes/bard/");
             string filePath = uri.AbsolutePath;
             Console.WriteLine(filePath);
@@ -75,7 +75,7 @@ internal class Program
             mdConverter.ConvertLinks(filePath, outPath);
         }
 
-        File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
+        // File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
     }
 
     private static void CrawlSitemap()
