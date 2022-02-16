@@ -41,7 +41,6 @@ internal class Program
 
         if (false)
         {
-            
             int i = 0;
             foreach (string contentLink in ContentLinksList)
             {
@@ -50,7 +49,7 @@ internal class Program
                 Console.WriteLine($"{i} of {ContentLinksList.Length}");
                 Console.WriteLine(filePath);
                 string outPath = RunLocation + "/d20pfsrd_md" + filePath;
-    
+
                 try
                 {
                     mdConverter.LoadAndConvert(OutputLocation + filePath, filePath, outPath);
@@ -59,14 +58,34 @@ internal class Program
                 {
                     Console.WriteLine("Could not create md file");
                 }
-    
+
                 i++;
             }
-            
+
+            i = 0;
+            foreach (string contentLink in ContentLinksList)
+            {
+                Uri uri = new Uri(contentLink);
+                string filePath = uri.AbsolutePath;
+                Console.WriteLine($"Links {i} of {ContentLinksList.Length}");
+                Console.WriteLine(filePath);
+                string outPath = RunLocation + "/d20pfsrd_md" + filePath;
+
+                try
+                {
+                    mdConverter.ConvertLinks(filePath, outPath);
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Could convert links");
+                }
+
+                i++;
+            }
         }
         else
         {
-            mdConverter.Headings = JsonConvert.DeserializeObject< Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
+            mdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
             Uri uri = new Uri("https://www.d20pfsrd.com/classes/core-classes/bard/");
             string filePath = uri.AbsolutePath;
             Console.WriteLine(filePath);
@@ -75,7 +94,7 @@ internal class Program
             mdConverter.ConvertLinks(filePath, outPath);
         }
 
-        // File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
+        File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
     }
 
     private static void CrawlSitemap()
