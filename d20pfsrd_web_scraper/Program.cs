@@ -82,6 +82,8 @@ internal class Program
 
                 i++;
             }
+            
+            File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
         }
         else
         {
@@ -93,8 +95,6 @@ internal class Program
             mdConverter.LoadAndConvert(OutputLocation + filePath, filePath, outPath);
             mdConverter.ConvertLinks(filePath, outPath);
         }
-
-        File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
     }
 
     private static void CrawlSitemap()

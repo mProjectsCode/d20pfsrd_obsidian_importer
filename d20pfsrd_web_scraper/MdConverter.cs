@@ -1,5 +1,7 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
+using ReverseMarkdown;
+using ReverseMarkdown.Converters;
 
 namespace d20pfsrd_web_scraper;
 
@@ -98,6 +100,11 @@ public class MdConverter
         html = Regex.Replace(html, @"<a (name|id)[^>]*></a>", "");
 
         html = Regex.Replace(html, @"<br>", "\n");
+        html = Regex.Replace(html, @"<hr>", "\n---\n");
+        
+        html = Regex.Replace(html, @"\* :", "*:");
+        
+        html = Regex.Replace(html, "\n +?<", "\n<");
 
         html = html.Replace("\r", "\n");
         html = Regex.Replace(html, "\n\n\n+", "\n\n");
@@ -106,6 +113,12 @@ public class MdConverter
 
         html = Regex.Replace(html, "\n\n<", "\n<");
         html = Regex.Replace(html, "\n\n - ", "\n - ");
+        
+        html = Regex.Replace(html, "&amp;", "&");
+        html = Regex.Replace(html, "&quot;", "\"");
+        html = Regex.Replace(html, "&#039;", "\'");
+        html = Regex.Replace(html, "&apos;", "\'");
+        html = Regex.Replace(html, "&#8217;", "\'");
 
         MatchCollection headings = Regex.Matches(html, "#+? .+?\n");
         foreach (Match heading in headings)
@@ -199,9 +212,7 @@ public class MdConverter
         // get all a tags
         MatchCollection links = Regex.Matches(html, @"<a[^>]*>.*?</a>");
 
-        List<string> replacementList = new List<string>();
-        List<int> originalLength = new List<int>();
-        List<int> indices = new List<int>();
+        List<LinkReplacement> replacements = new List<LinkReplacement>();
 
         StringBuilder linksAtEndOfFile = new StringBuilder();
         StringBuilder footer = new StringBuilder();
@@ -209,7 +220,7 @@ public class MdConverter
 
         foreach (Match match in links)
         {
-            // Console.WriteLine();
+            Console.WriteLine();
 
             // Console.WriteLine(match.Value);
 
@@ -229,7 +240,7 @@ public class MdConverter
             // remove the opening and closing <a ...> tag
             string content = Regex.Replace(match.Value, @"<a[^>]*>", "");
             content = Regex.Replace(content, @"</a>", "");
-            // Console.WriteLine(href);
+            Console.WriteLine(href);
 
             if (!(href.StartsWith("https://www.d20pfsrd.com") || href.StartsWith("#")))
             {
@@ -244,6 +255,7 @@ public class MdConverter
                 bool isSelfLink = false;
                 bool hasFragment = false;
                 bool isInternalLink = false;
+                string fragment = "";
 
                 if (href.StartsWith('#'))
                 {
@@ -270,8 +282,8 @@ public class MdConverter
                     woFragmentPath += "/";
                 }
 
-                // Console.WriteLine($"hrefPath: {hrefPath}");
-                // Console.WriteLine($"woFragmentPath: {woFragmentPath}");
+                Console.WriteLine($"hrefPath: {hrefPath}");
+                Console.WriteLine($"woFragmentPath: {woFragmentPath}");
 
                 // look if it is an internal link
 
@@ -292,21 +304,21 @@ public class MdConverter
                 bool foundTOCItem = false;
                 string TOCItem = "";
 
-                // Console.WriteLine($"hasFragment: {hasFragment}");
+                Console.WriteLine($"hasFragment: {hasFragment}");
                 if (hasFragment)
                 {
                     string linkFile = ConvertToMdTitle(woFragmentPath);
-                    string fragment = ConvertToMdTitle(href[href.IndexOf("#")..]);
+                    fragment = ConvertToMdTitle(href[href.IndexOf("#")..]);
                     fragment = fragment[1..];
 
-                    // Console.WriteLine($"Fragment: {fragment}");
+                    Console.WriteLine($"Fragment: {fragment}");
 
                     if (isSelfLink)
                     {
                         linkFile = title;
                     }
 
-                    // Console.WriteLine($"linkFile: {linkFile}");
+                    Console.WriteLine($"linkFile: {linkFile}");
 
                     foreach (string heading in Headings[linkFile])
                     {
@@ -343,13 +355,13 @@ public class MdConverter
                 }
 
                 // find out weather 
-                string subHtml = html.Substring(match.Index);
+                string subHtml = html[match.Index..];
                 subHtml = Regex.Replace(subHtml, @"<img [^>]+?>", "");
                 MatchCollection openingTags = Regex.Matches(subHtml, @"<[^(/|!)][^>]*?>");
                 MatchCollection closingTags = Regex.Matches(subHtml, @"</[^(>|\-)]*?>");
                 // Console.WriteLine(subHtml.Remove(400));
-                // Console.WriteLine(openingTags.Count);
-                // Console.WriteLine(closingTags.Count);
+                Console.WriteLine(openingTags.Count);
+                Console.WriteLine(closingTags.Count);
 
                 bool isInHeading = false;
                 int headingIndex = 0;
@@ -382,14 +394,19 @@ public class MdConverter
 
                 string mdTitle = ConvertToMdTitle(hrefPath);
 
-                // Console.WriteLine($"foundTOCItem: {foundTOCItem}");
+                Console.WriteLine($"foundTOCItem: {foundTOCItem}");
 
                 if (hasFragment && !foundTOCItem)
                 {
                     mdTitle = RemoveFragment(mdTitle);
-                    mdTitle += "#" + TOCItem;
+                    string d20pfsrdLink = href;
 
-                    footer.Append($"[^{footerIndex}]: TOC-Item: {TOCItem} \nd20pfsrd-Link: {href}\n");
+                    if (isSelfLink)
+                    {
+                        d20pfsrdLink = "https://www.d20pfsrd.com/" + title.Replace("_", "/") + href;
+                    }
+
+                    footer.Append($"[^{footerIndex}]: TOC-Item: {fragment} \nd20pfsrd-Link: {d20pfsrdLink}\n");
                 }
 
                 string linkText = "";
@@ -400,10 +417,18 @@ public class MdConverter
 
                     if (hasFragment && !foundTOCItem)
                     {
+                        if (isSelfLink)
+                        {
+                            linkText = $"[[{title}|{content}]]";
+                        }
+                        else
+                        {
+                            linkText = $"[[{ConvertToMdTitle(woFragmentPath)}|{content}]]";
+                        }
                         linkText += $"[^{footerIndex}]";
                     }
 
-                    // Console.WriteLine("replaced href with wikilink");
+                    Console.WriteLine("replaced href with wikilink");
                 }
                 // in another element
                 else if (openingTags.Count < closingTags.Count)
@@ -426,46 +451,65 @@ public class MdConverter
                     }
                     */
 
-                    // Console.WriteLine("replaced href a");
+                    Console.WriteLine("replaced href a");
+                }
+                else
+                {
+                    Console.WriteLine("something is wrong");
                 }
 
                 if (isInHeading)
                 {
-                    string replacement = $"{content}";
-                    replacementList.Add(replacement);
-                    originalLength.Add(match.Value.Length);
-                    indices.Add(match.Index);
-
-                    replacementList.Add($"\nLink from heading: {linkText}");
-                    originalLength.Add(0);
-                    indices.Add(nextLineStartIndex);
+                    // Console.WriteLine();
+                    // Console.WriteLine(content);
+                    // Console.WriteLine(linkText);
+                    // Console.WriteLine(match.Value.Length);
+                    // Console.WriteLine(nextLineStartIndex);
+                    
+                    replacements.Add(new LinkReplacement(content, match.Value.Length, match.Index));
+                    
+                    replacements.Add(new LinkReplacement($"\nLink from heading: {linkText}", 0, nextLineStartIndex));
                 }
                 else
                 {
-                    replacementList.Add($"{linkText}");
-                    originalLength.Add(match.Value.Length);
-                    indices.Add(match.Index);
+                    replacements.Add(new LinkReplacement(linkText, match.Value.Length, match.Index));
                 }
 
                 footerIndex += 1;
             }
             catch (Exception e)
             {
-                // Console.WriteLine("cant read href");
+                Console.WriteLine($"Encountered Exception: {e.Message}");
+                Console.WriteLine($"Encountered Exception: {e.StackTrace}");
             }
         }
 
-        string[] splitHtml = SplitAt(html, indices.ToArray());
+        LinkReplacement[] replacementsArr = replacements.ToArray();
+
+        if (!IsSorted(replacementsArr))
+        {
+            replacementsArr = replacementsArr.OrderBy(x => x.Index).ToArray();
+        }
+        
+        string[] splitHtml = SplitAt(html, replacementsArr.Select(x => x.Index).ToArray());
+        
+        // Console.WriteLine(replacementsArr.Length);
+        // Console.WriteLine(splitHtml.Length);
+        
         StringBuilder output = new StringBuilder();
         output.Append(splitHtml[0]);
 
         for (int i = 1; i < splitHtml.Length; i++)
         {
+            // Console.WriteLine(splitHtml[i].Length + " - " + replacementsArr[i - 1].OriginalLength);
+            // Console.WriteLine(splitHtml[i]);
+            // Console.WriteLine(replacementsArr[i - 1].Index);
+            // Console.WriteLine();
+            
             // remove the old link
-            // Console.WriteLine(splitHtml[i].Length + " - " + origionalLength[i]);
-            string part = splitHtml[i].Substring(originalLength[i - 1]);
+            string part = splitHtml[i][replacementsArr[i - 1].OriginalLength..];
             // add new one
-            output.Append(replacementList[i - 1]).Append(part);
+            output.Append(replacementsArr[i - 1].Replacement).Append(part);
         }
 
         output.Append("\n\n").Append(linksAtEndOfFile);
@@ -477,7 +521,7 @@ public class MdConverter
 
     public string[] SplitAt(string source, params int[] index)
     {
-        index = index.Distinct().OrderBy(x => x).ToArray();
+        // index = index.OrderBy(x => x).ToArray();
         string[] output = new string[index.Length + 1];
         int pos = 0;
 
@@ -488,5 +532,34 @@ public class MdConverter
 
         output[index.Length] = source[pos..];
         return output;
+    }
+    
+    public bool IsSorted(LinkReplacement[] arr)
+    {               
+        int last = arr.Length - 1;
+        if (last < 1) return true;
+
+        int i = 0;
+
+        while (i < last && arr[i].Index <= arr[i + 1].Index)
+        {
+            i++;
+        }
+
+        return i == last;
+    }
+
+    public struct LinkReplacement
+    {
+        public string Replacement { get; set; }
+        public int OriginalLength { get; set; }
+        public int Index { get; set; }
+
+        public LinkReplacement(string replacement, int originalLength, int index)
+        {
+            Replacement = replacement;
+            OriginalLength = originalLength;
+            Index = index;
+        }
     }
 }
