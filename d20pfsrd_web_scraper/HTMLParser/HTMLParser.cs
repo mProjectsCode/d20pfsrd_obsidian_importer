@@ -8,6 +8,5 @@ public class HTMLParser
     {
         HtmlDocument htmlDocument = new HtmlDocument();
         htmlDocument.LoadHtml(htmlString);
-        
     }
 }

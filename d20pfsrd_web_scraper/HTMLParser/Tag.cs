@@ -2,11 +2,10 @@
 
 public class Tag
 {
-    public string OuterHtml { get; set; }
-    public string InnerHtml { get; set; }
+    public List<Tag> Children;
+    public Dictionary<string, string> Fields;
 
     public string Type;
-    public Dictionary<string, string> Fields;
-    
-    public List<Tag> Children;
+    public string OuterHtml { get; set; }
+    public string InnerHtml { get; set; }
 }

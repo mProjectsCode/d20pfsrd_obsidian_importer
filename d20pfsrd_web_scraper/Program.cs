@@ -40,7 +40,7 @@ internal class Program
         }
 
         Console.WriteLine(RunLocation);
-        
+
         ContentLinksList = File.ReadAllLines(RunLocation + "/contentLinks.txt");
         ContentLinks = File.ReadAllText(RunLocation + "/contentLinks.txt");
 
@@ -89,13 +89,13 @@ internal class Program
 
                 i++;
             }
-            
+
             File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
         }
         else
         {
             mdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
-            Uri uri = new Uri("https://www.d20pfsrd.com/classes/core-classes/bard/");
+            Uri uri = new Uri("https://www.d20pfsrd.com/alternative-rule-systems/spheres-of-might/combat-spheres/athletics/");
             string filePath = uri.AbsolutePath;
             Console.WriteLine(filePath);
             string outPath = RunLocation + "/d20pfsrd_md" + filePath;

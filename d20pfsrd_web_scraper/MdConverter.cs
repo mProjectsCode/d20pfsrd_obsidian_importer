@@ -1,7 +1,5 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
-using ReverseMarkdown;
-using ReverseMarkdown.Converters;
 
 namespace d20pfsrd_web_scraper;
 
@@ -101,9 +99,9 @@ public class MdConverter
 
         html = Regex.Replace(html, @"<br>", "\n");
         html = Regex.Replace(html, @"<hr>", "\n---\n");
-        
+
         html = Regex.Replace(html, @"\* :", "*:");
-        
+
         html = Regex.Replace(html, "\n +?<", "\n<");
 
         html = html.Replace("\r", "\n");
@@ -113,7 +111,7 @@ public class MdConverter
 
         html = Regex.Replace(html, "\n\n<", "\n<");
         html = Regex.Replace(html, "\n\n - ", "\n - ");
-        
+
         html = Regex.Replace(html, "&amp;", "&");
         html = Regex.Replace(html, "&quot;", "\"");
         html = Regex.Replace(html, "&#039;", "\'");
@@ -240,6 +238,7 @@ public class MdConverter
             // remove the opening and closing <a ...> tag
             string content = Regex.Replace(match.Value, @"<a[^>]*>", "");
             content = Regex.Replace(content, @"</a>", "");
+
             // Console.WriteLine(href);
 
             if (!(href.StartsWith("https://www.d20pfsrd.com") || href.StartsWith("#")))
@@ -425,6 +424,7 @@ public class MdConverter
                         {
                             linkText = $"[[{ConvertToMdTitle(woFragmentPath)}|{content}]]";
                         }
+
                         linkText += $"[^{footerIndex}]";
                     }
 
@@ -455,6 +455,23 @@ public class MdConverter
                 }
                 else
                 {
+                    linkText = $"[[{mdTitle}|{content}]]";
+
+                    if (hasFragment && !foundTOCItem)
+                    {
+                        if (isSelfLink)
+                        {
+                            linkText = $"[[{title}|{content}]]";
+                        }
+                        else
+                        {
+                            linkText = $"[[{ConvertToMdTitle(woFragmentPath)}|{content}]]";
+                        }
+
+                        linkText += $"[^{footerIndex}]";
+                    }
+
+                    // Console.WriteLine("replaced href with wikilink");
                     Console.WriteLine("something is wrong");
                 }
 
@@ -465,9 +482,9 @@ public class MdConverter
                     // Console.WriteLine(linkText);
                     // Console.WriteLine(match.Value.Length);
                     // Console.WriteLine(nextLineStartIndex);
-                    
+
                     replacements.Add(new LinkReplacement(content, match.Value.Length, match.Index));
-                    
+
                     replacements.Add(new LinkReplacement($"\nLink from heading: {linkText}", 0, nextLineStartIndex));
                 }
                 else
@@ -490,12 +507,12 @@ public class MdConverter
         {
             replacementsArr = replacementsArr.OrderBy(x => x.Index).ToArray();
         }
-        
+
         string[] splitHtml = SplitAt(html, replacementsArr.Select(x => x.Index).ToArray());
-        
+
         // Console.WriteLine(replacementsArr.Length);
         // Console.WriteLine(splitHtml.Length);
-        
+
         StringBuilder output = new StringBuilder();
         output.Append(splitHtml[0]);
 
@@ -505,7 +522,7 @@ public class MdConverter
             // Console.WriteLine(splitHtml[i]);
             // Console.WriteLine(replacementsArr[i - 1].Index);
             // Console.WriteLine();
-            
+
             // remove the old link
             string part = splitHtml[i][replacementsArr[i - 1].OriginalLength..];
             // add new one
@@ -533,11 +550,14 @@ public class MdConverter
         output[index.Length] = source[pos..];
         return output;
     }
-    
+
     public bool IsSorted(LinkReplacement[] arr)
-    {               
+    {
         int last = arr.Length - 1;
-        if (last < 1) return true;
+        if (last < 1)
+        {
+            return true;
+        }
 
         int i = 0;
 
