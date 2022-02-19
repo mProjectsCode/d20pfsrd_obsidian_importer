@@ -33,13 +33,20 @@ internal class Program
     {
         // CrawlSitemap();
         // CrawlPage("https://www.d20pfsrd.com/feats/general-feats/aboleth-deceiver/").Save();
+
+        if (!File.Exists(RunLocation + "/contentLinks.txt"))
+        {
+            CrawlSitemap();
+        }
+
         Console.WriteLine(RunLocation);
+        
         ContentLinksList = File.ReadAllLines(RunLocation + "/contentLinks.txt");
         ContentLinks = File.ReadAllText(RunLocation + "/contentLinks.txt");
 
         MdConverter mdConverter = new MdConverter();
 
-        if (false)
+        if (true)
         {
             int i = 0;
             foreach (string contentLink in ContentLinksList)
