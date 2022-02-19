@@ -220,7 +220,7 @@ public class MdConverter
 
         foreach (Match match in links)
         {
-            Console.WriteLine();
+            // Console.WriteLine();
 
             // Console.WriteLine(match.Value);
 
@@ -240,7 +240,7 @@ public class MdConverter
             // remove the opening and closing <a ...> tag
             string content = Regex.Replace(match.Value, @"<a[^>]*>", "");
             content = Regex.Replace(content, @"</a>", "");
-            Console.WriteLine(href);
+            // Console.WriteLine(href);
 
             if (!(href.StartsWith("https://www.d20pfsrd.com") || href.StartsWith("#")))
             {
@@ -282,8 +282,8 @@ public class MdConverter
                     woFragmentPath += "/";
                 }
 
-                Console.WriteLine($"hrefPath: {hrefPath}");
-                Console.WriteLine($"woFragmentPath: {woFragmentPath}");
+                // Console.WriteLine($"hrefPath: {hrefPath}");
+                // Console.WriteLine($"woFragmentPath: {woFragmentPath}");
 
                 // look if it is an internal link
 
@@ -304,21 +304,21 @@ public class MdConverter
                 bool foundTOCItem = false;
                 string TOCItem = "";
 
-                Console.WriteLine($"hasFragment: {hasFragment}");
+                // Console.WriteLine($"hasFragment: {hasFragment}");
                 if (hasFragment)
                 {
                     string linkFile = ConvertToMdTitle(woFragmentPath);
                     fragment = ConvertToMdTitle(href[href.IndexOf("#")..]);
                     fragment = fragment[1..];
 
-                    Console.WriteLine($"Fragment: {fragment}");
+                    // Console.WriteLine($"Fragment: {fragment}");
 
                     if (isSelfLink)
                     {
                         linkFile = title;
                     }
 
-                    Console.WriteLine($"linkFile: {linkFile}");
+                    // Console.WriteLine($"linkFile: {linkFile}");
 
                     foreach (string heading in Headings[linkFile])
                     {
@@ -360,8 +360,8 @@ public class MdConverter
                 MatchCollection openingTags = Regex.Matches(subHtml, @"<[^(/|!)][^>]*?>");
                 MatchCollection closingTags = Regex.Matches(subHtml, @"</[^(>|\-)]*?>");
                 // Console.WriteLine(subHtml.Remove(400));
-                Console.WriteLine(openingTags.Count);
-                Console.WriteLine(closingTags.Count);
+                // Console.WriteLine(openingTags.Count);
+                // Console.WriteLine(closingTags.Count);
 
                 bool isInHeading = false;
                 int headingIndex = 0;
@@ -394,7 +394,7 @@ public class MdConverter
 
                 string mdTitle = ConvertToMdTitle(hrefPath);
 
-                Console.WriteLine($"foundTOCItem: {foundTOCItem}");
+                // Console.WriteLine($"foundTOCItem: {foundTOCItem}");
 
                 if (hasFragment && !foundTOCItem)
                 {
@@ -428,7 +428,7 @@ public class MdConverter
                         linkText += $"[^{footerIndex}]";
                     }
 
-                    Console.WriteLine("replaced href with wikilink");
+                    // Console.WriteLine("replaced href with wikilink");
                 }
                 // in another element
                 else if (openingTags.Count < closingTags.Count)
@@ -451,7 +451,7 @@ public class MdConverter
                     }
                     */
 
-                    Console.WriteLine("replaced href a");
+                    // Console.WriteLine("replaced href a");
                 }
                 else
                 {
