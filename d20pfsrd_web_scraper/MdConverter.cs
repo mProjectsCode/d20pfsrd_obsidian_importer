@@ -19,35 +19,36 @@ public class MdConverter
         }
     }
 
-    public void LoadAndConvert(string path, string relPath, string outPath)
+    public void LoadAndConvert(Note note)
     {
-        Console.WriteLine(outPath);
-        string html = File.ReadAllText(path + "index.html", Encoding.UTF8);
-        ConvertToMd(html, path, relPath, outPath);
+        Console.WriteLine(PathHelper.Combine(Program.RunLocation, note.LocalPathToHtml));
+        
+        string html = File.ReadAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToHtml), Encoding.UTF8);
+        ConvertToMd(html, note);
     }
 
-    public void ConvertToMd(string html, string path, string relPath, string outPath)
+    public void ConvertToMd(string html, Note note)
     {
-        string title = ConvertToMdTitle(relPath);
+        // Console.WriteLine(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown));
+        
+        string markdown = note.ToMetadata() + "\n";
+        markdown += "# " + note.Title + "\n";
+        markdown += ParseHtml(html, note.FileName);
+        
+        Directory.CreateDirectory(PathHelper.Combine(Program.RunLocation, Program.OutputFolder, note.LocalPathToFolder));
 
-        string markdown = "# " + GetDocumentHeadingFromMdTitle(title) + "\n";
-
-        markdown += ParseHtml(html, title);
-
-        //Directory.CreateDirectory(outPath);
-
-        File.WriteAllText(outPath + title + ".md", markdown, Encoding.UTF8);
+        File.WriteAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown), markdown, Encoding.UTF8);
     }
 
-    public void ConvertLinks(string relPath, string outPath)
+    public void ConvertLinks(Note note)
     {
-        Console.WriteLine(outPath);
-        string title = ConvertToMdTitle(relPath);
-        string document = File.ReadAllText(outPath + title + ".md", Encoding.UTF8);
+        Console.WriteLine(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown));
+        
+        string document = File.ReadAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown), Encoding.UTF8);
 
-        document = UpdateLinks(document, title);
+        document = UpdateLinks(document, note.FileName);
 
-        File.WriteAllText(outPath + title + ".md", document, Encoding.UTF8);
+        File.WriteAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown), document, Encoding.UTF8);
     }
 
     public string ParseHtml(string html, string title)
@@ -90,7 +91,7 @@ public class MdConverter
         html = Regex.Replace(html, @" *<b> *", " **");
         html = Regex.Replace(html, @" *</b> *", "** ");
 
-        html = Regex.Replace(html, @"</?ul[^>]*>", "");
+        html = Regex.Replace(html, @"</?ul[^>]*>", "\n");
 
         html = Regex.Replace(html, @"<li[^>]*>", " - ");
         html = Regex.Replace(html, @"</li>", "\n");
@@ -170,6 +171,11 @@ public class MdConverter
 
     public string GetDocumentHeadingFromMdTitle(string mdTitle)
     {
+        if (mdTitle == "")
+        {
+            mdTitle = "index";
+        }
+        
         string[] parts = mdTitle.Split('_');
         return FirstCharToUpper(parts[parts.Length - 1]);
     }
@@ -182,16 +188,6 @@ public class MdConverter
             "" => throw new ArgumentException($"{nameof(input)} cannot be empty", nameof(input)),
             _ => input[0].ToString().ToUpper() + input.Substring(1),
         };
-    }
-
-    public string RemoveTrailingSlashes(string link)
-    {
-        if (link.EndsWith('/') || link.EndsWith('\\'))
-        {
-            return link.Remove(link.Length - 1);
-        }
-
-        return link;
     }
 
     public string RemoveFragment(string path)
@@ -497,7 +493,7 @@ public class MdConverter
             catch (Exception e)
             {
                 Console.WriteLine($"Encountered Exception: {e.Message}");
-                Console.WriteLine($"Encountered Exception: {e.StackTrace}");
+                Console.WriteLine($"{e.StackTrace}");
             }
         }
 

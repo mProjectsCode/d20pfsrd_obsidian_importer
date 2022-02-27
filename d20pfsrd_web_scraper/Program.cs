@@ -10,7 +10,11 @@ namespace d20pfsrd_web_scraper;
 internal class Program
 {
     public static string RunLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-    public static string OutputLocation = RunLocation + "/d20pfsrd/";
+    public static readonly string InputFolder = "d20pfsrd";
+    public static readonly string OutputFolder = "d20pfsrd_md";
+    
+    
+    public static string OutputLocation = PathHelper.Combine(RunLocation, "d20pfsrd");
     public static HtmlWeb Web { get; set; } = new HtmlWeb();
     public static string ContentLinks { get; set; }
     public static string[] ContentLinksList { get; set; }
@@ -34,15 +38,15 @@ internal class Program
         // CrawlSitemap();
         // CrawlPage("https://www.d20pfsrd.com/feats/general-feats/aboleth-deceiver/").Save();
 
-        if (!File.Exists(RunLocation + "/contentLinks.txt"))
+        if (!File.Exists(PathHelper.Combine(RunLocation, "contentLinks.txt")))
         {
             CrawlSitemap();
         }
 
         Console.WriteLine(RunLocation);
 
-        ContentLinksList = File.ReadAllLines(RunLocation + "/contentLinks.txt");
-        ContentLinks = File.ReadAllText(RunLocation + "/contentLinks.txt");
+        ContentLinksList = File.ReadAllLines(PathHelper.Combine(RunLocation, "contentLinks.txt"));
+        ContentLinks = File.ReadAllText(PathHelper.Combine(RunLocation, "contentLinks.txt"));
 
         MdConverter mdConverter = new MdConverter();
 
@@ -54,18 +58,22 @@ internal class Program
                 Uri uri = new Uri(contentLink);
                 string filePath = uri.AbsolutePath;
                 Console.WriteLine($"{i} of {ContentLinksList.Length}");
-                Console.WriteLine(filePath);
-                string outPath = RunLocation + "/d20pfsrd_md" + filePath;
+                // Console.WriteLine(filePath);
 
-                try
+                if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
                 {
-                    mdConverter.LoadAndConvert(OutputLocation + filePath, filePath, outPath);
+                    Note note = new Note(filePath, mdConverter);
+                    
+                    try
+                    {
+                        mdConverter.LoadAndConvert(note);
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine("Could not create md file");
+                    }
                 }
-                catch (Exception)
-                {
-                    Console.WriteLine("Could not create md file");
-                }
-
+                
                 i++;
             }
 
@@ -75,32 +83,40 @@ internal class Program
                 Uri uri = new Uri(contentLink);
                 string filePath = uri.AbsolutePath;
                 Console.WriteLine($"Links {i} of {ContentLinksList.Length}");
-                Console.WriteLine(filePath);
-                string outPath = RunLocation + "/d20pfsrd_md" + filePath;
-
-                try
+                // Console.WriteLine(filePath);
+                
+                if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
                 {
-                    mdConverter.ConvertLinks(filePath, outPath);
-                }
-                catch (Exception)
-                {
-                    Console.WriteLine("Could convert links");
+                    Note note = new Note(filePath, mdConverter);
+                    
+                    try
+                    {
+                        mdConverter.ConvertLinks(note);
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine("Could convert links");
+                    }
                 }
 
                 i++;
             }
 
-            File.WriteAllText(RunLocation + "/headingMap.json", JsonConvert.SerializeObject(mdConverter.Headings));
+            File.WriteAllText(PathHelper.Combine(RunLocation, "headingMap.json"), JsonConvert.SerializeObject(mdConverter.Headings));
         }
         else
         {
             mdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
-            Uri uri = new Uri("https://www.d20pfsrd.com/alternative-rule-systems/spheres-of-might/combat-spheres/athletics/");
+            Uri uri = new Uri("https://www.d20pfsrd.com/classes/");
             string filePath = uri.AbsolutePath;
             Console.WriteLine(filePath);
-            string outPath = RunLocation + "/d20pfsrd_md" + filePath;
-            mdConverter.LoadAndConvert(OutputLocation + filePath, filePath, outPath);
-            mdConverter.ConvertLinks(filePath, outPath);
+
+            Note note = new Note(filePath, mdConverter);
+            
+            Console.WriteLine(JsonConvert.SerializeObject(note, Formatting.Indented));
+            
+            mdConverter.LoadAndConvert(note);
+            mdConverter.ConvertLinks(note);
         }
     }
 
@@ -196,7 +212,7 @@ internal class Program
     }
 }
 
-internal class Page
+class Page
 {
     public Page(string title, string url, string content, DateTime timeAccessed)
     {
