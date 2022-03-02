@@ -5,9 +5,9 @@ namespace d20pfsrd_web_scraper;
 
 public class MdConverter
 {
-    public Dictionary<string, List<string>> Headings;
+    public static Dictionary<string, List<string>> Headings;
 
-    public MdConverter()
+    public static void Init()
     {
         Headings = new Dictionary<string, List<string>>(Program.ContentLinksList.Length);
         foreach (string contentLink in Program.ContentLinksList)
@@ -19,39 +19,39 @@ public class MdConverter
         }
     }
 
-    public void LoadAndConvert(Note note)
+    public static string LoadAndConvert(NoteMetadata noteMetadata)
     {
-        Console.WriteLine(PathHelper.Combine(Program.RunLocation, note.LocalPathToHtml));
-        
-        string html = File.ReadAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToHtml), Encoding.UTF8);
-        ConvertToMd(html, note);
+        // Console.WriteLine(PathHelper.Combine(Program.RunLocation, noteMetadata.LocalPathToHtml));
+
+        string html = File.ReadAllText(PathHelper.Combine(Program.RunLocation, noteMetadata.LocalPathToHtml), Encoding.UTF8);
+        return ConvertToMd(html, noteMetadata);
     }
 
-    public void ConvertToMd(string html, Note note)
+    public static string ConvertToMd(string html, NoteMetadata noteMetadata)
     {
         // Console.WriteLine(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown));
-        
-        string markdown = note.ToMetadata() + "\n";
-        markdown += "# " + note.Title + "\n";
-        markdown += ParseHtml(html, note.FileName);
-        
-        Directory.CreateDirectory(PathHelper.Combine(Program.RunLocation, Program.OutputFolder, note.LocalPathToFolder));
 
-        File.WriteAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown), markdown, Encoding.UTF8);
+        string markdown = noteMetadata.ToMetadata() + "\n";
+        markdown += "# " + noteMetadata.Title + "\n";
+        markdown += ParseHtml(html, noteMetadata.FileName);
+
+        // Directory.CreateDirectory(PathHelper.Combine(Program.RunLocation, Program.OutputFolder, noteMetadata.LocalPathToFolder));
+
+        return markdown;
     }
 
-    public void ConvertLinks(Note note)
+    public static string ConvertLinks(NoteMetadata noteMetadata)
     {
-        Console.WriteLine(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown));
-        
-        string document = File.ReadAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown), Encoding.UTF8);
+        // Console.WriteLine(PathHelper.Combine(Program.RunLocation, noteMetadata.LocalPathToMarkdown));
 
-        document = UpdateLinks(document, note.FileName);
+        string document = File.ReadAllText(PathHelper.Combine(Program.RunLocation, noteMetadata.LocalPathToMarkdown), Encoding.UTF8);
 
-        File.WriteAllText(PathHelper.Combine(Program.RunLocation, note.LocalPathToMarkdown), document, Encoding.UTF8);
+        document = UpdateLinks(document, noteMetadata.FileName);
+
+        return document;
     }
 
-    public string ParseHtml(string html, string title)
+    public static string ParseHtml(string html, string title)
     {
         html = html.Trim();
 
@@ -134,7 +134,7 @@ public class MdConverter
         return html;
     }
 
-    public string ConvertToMdTitle(string relPath)
+    public static string ConvertToMdTitle(string relPath)
     {
         string title = relPath.Replace('/', '_');
         title = title.Replace('\\', '_');
@@ -146,7 +146,7 @@ public class MdConverter
             subTitle = title.Substring(hashtagIndex, title.Length - hashtagIndex);
             subTitle = subTitle.Replace("TOC-", "");
             subTitle = subTitle.Replace("toc-", "");
-            if (int.TryParse(subTitle.Substring(1), out _))
+            if (int.TryParse(subTitle[1..], out _))
             {
                 subTitle = "";
             }
@@ -169,40 +169,36 @@ public class MdConverter
         return (title + subTitle).Trim();
     }
 
-    public string GetDocumentHeadingFromMdTitle(string mdTitle)
+    public static string GetDocumentHeadingFromMdTitle(string mdTitle)
     {
         if (mdTitle == "")
         {
             mdTitle = "index";
         }
-        
+
         string[] parts = mdTitle.Split('_');
         return FirstCharToUpper(parts[parts.Length - 1]);
     }
 
-    public string FirstCharToUpper(string input)
+    public static string FirstCharToUpper(string input)
     {
         return input switch
         {
             null => throw new ArgumentNullException(nameof(input)),
             "" => throw new ArgumentException($"{nameof(input)} cannot be empty", nameof(input)),
-            _ => input[0].ToString().ToUpper() + input.Substring(1),
+            _ => string.Concat(input[0].ToString().ToUpper(), input.AsSpan(1)),
         };
     }
 
-    public string RemoveFragment(string path)
+    public static string RemoveFragment(string path)
     {
         int hashtagIndex = path.IndexOf('#');
-        if (hashtagIndex == -1)
-        {
-            return path;
-        }
-
-        return path.Remove(hashtagIndex);
+        return hashtagIndex == -1 ? path : path.Remove(hashtagIndex);
     }
 
-    public string UpdateLinks(string html, string title)
+    public static string UpdateLinks(string html, string title)
     {
+        bool complainedAboutHTML = false;
         // get all a tags
         MatchCollection links = Regex.Matches(html, @"<a[^>]*>.*?</a>");
 
@@ -251,6 +247,7 @@ public class MdConverter
                 bool hasFragment = false;
                 bool isInternalLink = false;
                 string fragment = "";
+                int hrefHashTagIndex = -1;
 
                 if (href.StartsWith('#'))
                 {
@@ -267,7 +264,8 @@ public class MdConverter
                     woFragmentPath = RemoveFragment(hrefPath);
                 }
 
-                if (href.Contains('#'))
+                hrefHashTagIndex = href.IndexOf('#');
+                if (hrefHashTagIndex != -1)
                 {
                     hasFragment = true;
                 }
@@ -281,10 +279,10 @@ public class MdConverter
                 // Console.WriteLine($"woFragmentPath: {woFragmentPath}");
 
                 // look if it is an internal link
-
-                foreach (string contentLink in Program.ContentLinksList)
+                if (!isInternalLink)
                 {
-                    if ("https://www.d20pfsrd.com" + woFragmentPath == contentLink)
+                    string d20LinkWoFragment = "https://www.d20pfsrd.com" + woFragmentPath;
+                    if (Program.ContentLinksList.Contains(d20LinkWoFragment))
                     {
                         isInternalLink = true;
                     }
@@ -303,7 +301,7 @@ public class MdConverter
                 if (hasFragment)
                 {
                     string linkFile = ConvertToMdTitle(woFragmentPath);
-                    fragment = ConvertToMdTitle(href[href.IndexOf("#")..]);
+                    fragment = ConvertToMdTitle(href[hrefHashTagIndex..]);
                     fragment = fragment[1..];
 
                     // Console.WriteLine($"Fragment: {fragment}");
@@ -351,9 +349,24 @@ public class MdConverter
 
                 // find out weather 
                 string subHtml = html[match.Index..];
-                subHtml = Regex.Replace(subHtml, @"<img [^>]+?>", "");
-                MatchCollection openingTags = Regex.Matches(subHtml, @"<[^(/|!)][^>]*?>");
-                MatchCollection closingTags = Regex.Matches(subHtml, @"</[^(>|\-)]*?>");
+                subHtml = Regex.Replace(subHtml, @"<area[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<base[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<br[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<col[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<command[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<embed[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<hr[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<img[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<input[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<keygen[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<link[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<meta[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<param[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<source[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<track[^>]*?>", "");
+                subHtml = Regex.Replace(subHtml, @"<wbr[^>]*?>", "");
+                MatchCollection openingTags = Regex.Matches(subHtml, @"<[^/][^>]*?>");
+                MatchCollection closingTags = Regex.Matches(subHtml, @"<\/[^>]*?>");
                 // Console.WriteLine(subHtml.Remove(400));
                 // Console.WriteLine(openingTags.Count);
                 // Console.WriteLine(closingTags.Count);
@@ -468,7 +481,11 @@ public class MdConverter
                     }
 
                     // Console.WriteLine("replaced href with wikilink");
-                    Console.WriteLine("something is wrong");
+                    if (!complainedAboutHTML)
+                    {
+                        Console.WriteLine("Something in the source HTML is wrong");
+                        complainedAboutHTML = true;
+                    }
                 }
 
                 if (isInHeading)
@@ -532,7 +549,7 @@ public class MdConverter
         return output.ToString();
     }
 
-    public string[] SplitAt(string source, params int[] index)
+    public static string[] SplitAt(string source, params int[] index)
     {
         // index = index.OrderBy(x => x).ToArray();
         string[] output = new string[index.Length + 1];
@@ -547,7 +564,7 @@ public class MdConverter
         return output;
     }
 
-    public bool IsSorted(LinkReplacement[] arr)
+    public static bool IsSorted(LinkReplacement[] arr)
     {
         int last = arr.Length - 1;
         if (last < 1)

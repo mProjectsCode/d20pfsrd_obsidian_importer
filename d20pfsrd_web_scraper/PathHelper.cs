@@ -1,6 +1,4 @@
-﻿using System.Text.RegularExpressions;
-
-namespace d20pfsrd_web_scraper;
+﻿namespace d20pfsrd_web_scraper;
 
 public class PathHelper
 {
@@ -15,7 +13,7 @@ public class PathHelper
         {
             throw new ArgumentException("Can not combine a path with nothing");
         }
-        
+
         path1 = Combine(path1, paths[0]);
 
         if (paths.Length == 1)
@@ -25,7 +23,7 @@ public class PathHelper
 
         return Combine(path1, paths[1..]);
     }
-    
+
     public static string Combine(string path1, string path2)
     {
         path1 = TrimSlashes(path1);

@@ -1,25 +1,24 @@
-﻿using System.Net;
-using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
-using HtmlAgilityPack;
+﻿using System.Reflection;
 using Newtonsoft.Json;
 
 namespace d20pfsrd_web_scraper;
 
 internal class Program
 {
-    public static string RunLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-    public static readonly string InputFolder = "d20pfsrd";
-    public static readonly string OutputFolder = "d20pfsrd_md";
-    
-    
-    public static string OutputLocation = PathHelper.Combine(RunLocation, "d20pfsrd");
-    public static HtmlWeb Web { get; set; } = new HtmlWeb();
-    public static string ContentLinks { get; set; }
-    public static string[] ContentLinksList { get; set; }
+    // Experimental, i dont think it is faster but not tested
+    private const bool UseMultithreading = true; 
+    // Weather to parse all file or just a test file
+    private const bool ParseAll = true; 
 
-    public static string[] DomainBlackList { get; } =
+    // Input folder of the scraped HTML
+    public const string InputFolder = "d20pfsrd";
+    // Output folder of the parsed Markdown
+    public const string OutputFolder = "d20pfsrd_md";
+    public static readonly string RunLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+    public static readonly string ScraperOutputLocation = PathHelper.Combine(RunLocation, "d20pfsrd");
+
+    // A blacklist of domain that we do not want to scrap
+    public static readonly string[] DomainBlackList =
     {
         "/wp-json",
         "/wp-admin",
@@ -33,216 +32,252 @@ internal class Program
         "/extras",
     };
 
+    // List of all files crawled
+    public static string[]? ContentLinksList { get; private set; }
+
     private static void Main(string[] args)
     {
-        // CrawlSitemap();
-        // CrawlPage("https://www.d20pfsrd.com/feats/general-feats/aboleth-deceiver/").Save();
+        Console.WriteLine("---");
+        Console.WriteLine("d20pfsrd obsidian importer");
+        Console.WriteLine("---");
 
         if (!File.Exists(PathHelper.Combine(RunLocation, "contentLinks.txt")))
         {
-            CrawlSitemap();
+            Console.WriteLine("Crawling sitemap...\n");
+            D20pfsrdCrawler d20pfsrdCrawler = new D20pfsrdCrawler();
+            d20pfsrdCrawler.CrawlSitemap();
         }
 
-        Console.WriteLine(RunLocation);
-
         ContentLinksList = File.ReadAllLines(PathHelper.Combine(RunLocation, "contentLinks.txt"));
-        ContentLinks = File.ReadAllText(PathHelper.Combine(RunLocation, "contentLinks.txt"));
+        Console.WriteLine("Loaded content links");
+        Console.WriteLine("---");
 
-        MdConverter mdConverter = new MdConverter();
+        // init the markdown converter
+        MdConverter.Init();
 
-        if (true)
+        if (ParseAll)
         {
-            int i = 0;
-            foreach (string contentLink in ContentLinksList)
+            if (UseMultithreading)
             {
-                Uri uri = new Uri(contentLink);
-                string filePath = uri.AbsolutePath;
-                Console.WriteLine($"{i} of {ContentLinksList.Length}");
-                // Console.WriteLine(filePath);
-
-                if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
-                {
-                    Note note = new Note(filePath, mdConverter);
-                    
-                    try
-                    {
-                        mdConverter.LoadAndConvert(note);
-                    }
-                    catch (Exception)
-                    {
-                        Console.WriteLine("Could not create md file");
-                    }
-                }
-                
-                i++;
+                ParseAllAsync();
+            }
+            else
+            {
+                ParseAllSync();
             }
 
-            i = 0;
-            foreach (string contentLink in ContentLinksList)
-            {
-                Uri uri = new Uri(contentLink);
-                string filePath = uri.AbsolutePath;
-                Console.WriteLine($"Links {i} of {ContentLinksList.Length}");
-                // Console.WriteLine(filePath);
-                
-                if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
-                {
-                    Note note = new Note(filePath, mdConverter);
-                    
-                    try
-                    {
-                        mdConverter.ConvertLinks(note);
-                    }
-                    catch (Exception)
-                    {
-                        Console.WriteLine("Could convert links");
-                    }
-                }
-
-                i++;
-            }
-
-            File.WriteAllText(PathHelper.Combine(RunLocation, "headingMap.json"), JsonConvert.SerializeObject(mdConverter.Headings));
+            File.WriteAllText(PathHelper.Combine(RunLocation, "headingMap.json"), JsonConvert.SerializeObject(MdConverter.Headings));
         }
         else
         {
-            mdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
-            Uri uri = new Uri("https://www.d20pfsrd.com/classes/");
-            string filePath = uri.AbsolutePath;
-            Console.WriteLine(filePath);
-
-            Note note = new Note(filePath, mdConverter);
-            
-            Console.WriteLine(JsonConvert.SerializeObject(note, Formatting.Indented));
-            
-            mdConverter.LoadAndConvert(note);
-            mdConverter.ConvertLinks(note);
+            ParseTest("https://www.d20pfsrd.com/classes/");
         }
+        
     }
 
-    private static void CrawlSitemap()
+    private static void ParseTest(string url)
     {
-        string url = "https://www.d20pfsrd.com/sitemap.xml.gz";
+        Console.WriteLine($"Converting Test file: {url}");
+        Console.WriteLine("---");
+        
+        MdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
+        Uri uri = new Uri(url);
+        string filePath = uri.AbsolutePath;
 
-        List<string> subSitemapLinks = CrawlSubSitemaps(url);
-        List<string> contentLinks = new List<string>();
+        NoteMetadata noteMetadata = new NoteMetadata(filePath);
+        Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, noteMetadata.LocalPathToFolder));
 
-        foreach (string subSitemapLink in subSitemapLinks)
-        {
-            Console.WriteLine(subSitemapLink);
-            contentLinks.AddRange(CrawlSubSitemaps(subSitemapLink));
-        }
+        Console.WriteLine("Note Metadata: ");
+        Console.WriteLine(JsonConvert.SerializeObject(noteMetadata, Formatting.Indented));
 
-        File.WriteAllLines(RunLocation + "contentLinks.txt", contentLinks.ToArray());
+        string md = MdConverter.LoadAndConvert(noteMetadata);
+        File.WriteAllText(Path.Combine(RunLocation, noteMetadata.LocalPathToMarkdown), md);
 
-        List<string> failedLinks = new List<string>();
+        md = MdConverter.ConvertLinks(noteMetadata);
+        File.WriteAllText(Path.Combine(RunLocation, noteMetadata.LocalPathToMarkdown), md);
+    }
 
+    private static void ParseAllSync()
+    {
+        Console.WriteLine($"Converting all in sync");
+        Console.WriteLine("---");
+        
         int i = 0;
-
-        foreach (string contentLink in contentLinks)
+        foreach (string contentLink in ContentLinksList)
         {
-            try
+            Uri uri = new Uri(contentLink);
+            string filePath = uri.AbsolutePath;
+            Console.WriteLine($"{i} of {ContentLinksList.Length}");
+            // Console.WriteLine(filePath);
+
+            if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
             {
-                Console.WriteLine($"{i} of {contentLinks.Count}");
-                Page page = CrawlPage(contentLink);
-                page.Save();
-                Thread.Sleep(10);
-            }
-            catch (Exception e)
-            {
-                failedLinks.Add(contentLink);
+                NoteMetadata noteMetadata = new NoteMetadata(filePath);
+
+                try
+                {
+                    string md = MdConverter.LoadAndConvert(noteMetadata);
+                    Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, noteMetadata.LocalPathToFolder));
+                    File.WriteAllText(Path.Combine(RunLocation, noteMetadata.LocalPathToMarkdown), md);
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Could not create md file");
+                }
             }
 
             i++;
         }
 
-        File.WriteAllLines("failedLinks.txt", failedLinks.ToArray());
-    }
-
-    private static List<string> CrawlSubSitemaps(string url)
-    {
-        WebClient wc = new WebClient();
-        wc.Encoding = Encoding.UTF8;
-        string sitemapString = wc.DownloadString(url);
-
-        // Console.WriteLine(sitemapString);
-
-        string pattern = @"<loc.*>(.*?)<\/loc>";
-        Regex regex = new Regex(pattern);
-        MatchCollection matchCollection = regex.Matches(sitemapString);
-
-        List<string> links = new List<string>();
-
-        foreach (Match match in matchCollection)
+        i = 0;
+        foreach (string contentLink in ContentLinksList)
         {
-            string a = match.Value.Substring(5);
-            a = a.Remove(a.Length - 6);
+            Uri uri = new Uri(contentLink);
+            string filePath = uri.AbsolutePath;
+            Console.WriteLine($"Links {i} of {ContentLinksList.Length}");
+            // Console.WriteLine(filePath);
 
-            bool filter = false;
-            foreach (string s in DomainBlackList)
+            if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
             {
-                if (a.Contains(s))
+                NoteMetadata noteMetadata = new NoteMetadata(filePath);
+
+                try
                 {
-                    filter = true;
+                    string md = MdConverter.ConvertLinks(noteMetadata);
+                    Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, noteMetadata.LocalPathToFolder));
+                    File.WriteAllText(Path.Combine(RunLocation, noteMetadata.LocalPathToMarkdown), md);
+                }
+                catch (Exception)
+                {
+                    Console.WriteLine("Could convert links");
                 }
             }
 
-            if (!filter)
+            i++;
+        }
+    }
+
+
+    private static void ParseAllAsync()
+    {
+        Console.WriteLine($"Converting all async");
+        Console.WriteLine("---");
+        
+        const int batchSize = 1000;
+        int numberOfBatches = (int) Math.Ceiling(ContentLinksList.Length / (double) batchSize);
+
+        for (int i = 0; i < numberOfBatches; i++)
+        {
+            List<Task<TaskRetObj>> tasks = new List<Task<TaskRetObj>>(batchSize);
+
+            for (int j = 0; j < batchSize; j++)
             {
-                links.Add(a);
+                int j1 = j;
+                int i1 = i;
+                tasks.Add(Task.Run(() =>
+                {
+                    int num = i1 * batchSize + j1;
+                    if (num >= ContentLinksList.Length)
+                    {
+                        return new TaskRetObj(false);
+                    }
+
+                    string contentLink = ContentLinksList[num];
+
+                    Uri uri = new Uri(contentLink);
+                    string filePath = uri.AbsolutePath;
+                    // Console.WriteLine($"{num} of {ContentLinksList.Length}");
+                    // Console.WriteLine(filePath);
+
+                    if (!File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
+                    {
+                        return new TaskRetObj(false);
+                    }
+
+                    NoteMetadata noteMetadata = new NoteMetadata(filePath);
+
+                    try
+                    {
+                        return new TaskRetObj(noteMetadata, MdConverter.LoadAndConvert(noteMetadata));
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine("Could not create md file");
+                        return new TaskRetObj(false);
+                        ;
+                    }
+                }));
+            }
+
+            Console.WriteLine($"Writing batch {i}");
+            foreach (Task<TaskRetObj> task in tasks)
+            {
+                TaskRetObj taskRetObj = task.Result;
+                if (!taskRetObj.Success || taskRetObj.NoteMetadata == null)
+                {
+                    continue;
+                }
+
+                Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, taskRetObj.NoteMetadata.LocalPathToFolder));
+                File.WriteAllText(Path.Combine(RunLocation, taskRetObj.NoteMetadata.LocalPathToMarkdown), taskRetObj.Md);
             }
         }
 
-        return links;
-    }
-
-    private static Page CrawlPage(string url)
-    {
-        Web.OverrideEncoding = Encoding.UTF8;
-        HtmlDocument document = Web.Load(url);
-        HtmlNodeCollection htmlNodeCollection = document.DocumentNode.SelectNodes("//div[@class='article-content']");
-        string title = document.DocumentNode.SelectSingleNode("html/head/title").InnerText;
-
-        if (htmlNodeCollection.Count > 0)
+        for (int i = 0; i < numberOfBatches; i++)
         {
-            return new Page(title, url, htmlNodeCollection[0].InnerHtml, DateTime.Now);
+            List<Task<TaskRetObj>> tasks = new List<Task<TaskRetObj>>(batchSize);
+
+            for (int j = 0; j < batchSize; j++)
+            {
+                int i1 = i;
+                int j1 = j;
+                tasks.Add(Task.Run(() =>
+                {
+                    int num = i1 * batchSize + j1;
+                    if (num >= ContentLinksList.Length)
+                    {
+                        return new TaskRetObj(false);
+                    }
+
+                    string contentLink = ContentLinksList[num];
+
+                    Uri uri = new Uri(contentLink);
+                    string filePath = uri.AbsolutePath;
+                    Console.WriteLine($"{num} of {ContentLinksList.Length}");
+                    // Console.WriteLine(filePath);
+
+                    if (!File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
+                    {
+                        return new TaskRetObj(false);
+                    }
+
+                    NoteMetadata noteMetadata = new NoteMetadata(filePath);
+
+                    try
+                    {
+                        return new TaskRetObj(noteMetadata, MdConverter.ConvertLinks(noteMetadata));
+                    }
+                    catch (Exception)
+                    {
+                        Console.WriteLine("Could convert links");
+                        return new TaskRetObj(false);
+                        ;
+                    }
+                }));
+            }
+
+            Console.WriteLine($"Writing batch {i}");
+            foreach (Task<TaskRetObj> task in tasks)
+            {
+                TaskRetObj taskRetObj = task.Result;
+                if (!taskRetObj.Success || taskRetObj.NoteMetadata == null)
+                {
+                    continue;
+                }
+
+                Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, taskRetObj.NoteMetadata.LocalPathToFolder));
+                File.WriteAllText(Path.Combine(RunLocation, taskRetObj.NoteMetadata.LocalPathToMarkdown), taskRetObj.Md);
+            }
         }
-
-        return new Page(title, url, "", DateTime.Now);
-    }
-}
-
-class Page
-{
-    public Page(string title, string url, string content, DateTime timeAccessed)
-    {
-        string titleFilter = " &#8211; d20PFSRD";
-        if (title.Contains(titleFilter))
-        {
-            title = title.Remove(title.Length - titleFilter.Length);
-        }
-
-        Title = title;
-        URL = url;
-        Content = content;
-        TimeAccessed = timeAccessed;
-
-        // File.WriteAllLines("test.html", new string[] { content });
-    }
-
-    public string Title { get; set; }
-    public string URL { get; set; }
-
-    [JsonIgnore] public string Content { get; set; }
-
-    public DateTime TimeAccessed { get; set; }
-
-    public void Save()
-    {
-        Uri uri = new Uri(URL);
-        DirectoryInfo directoryInfo = Directory.CreateDirectory(Program.OutputLocation + uri.AbsolutePath);
-        Console.WriteLine(directoryInfo.FullName);
-        File.WriteAllText(directoryInfo.FullName + "index.html", Content);
-        File.WriteAllText(directoryInfo.FullName + "meta.json", JsonConvert.SerializeObject(this));
     }
 }

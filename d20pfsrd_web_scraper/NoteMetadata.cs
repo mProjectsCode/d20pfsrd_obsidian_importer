@@ -1,38 +1,36 @@
 ﻿using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using d20pfsrd_web_scraper.HTMLParser;
 
 namespace d20pfsrd_web_scraper;
 
-public class Note
+public class NoteMetadata
 {
-    public string Title;
-    public string WebTitle;
     public string FileName;
     public string LocalPathToFolder;
     public string LocalPathToHtml;
     public string LocalPathToJson;
     public string LocalPathToMarkdown;
-    public string Url;
-    public string TimeAccessed;
     public string[] Tags;
+    public string TimeAccessed;
+    public string Title;
+    public string Url;
+    public string WebTitle;
 
-    public Note(string localPath, MdConverter mdConverter)
+    public NoteMetadata(string localPath)
     {
         LocalPathToFolder = PathHelper.TrimSlashes(localPath);
         LocalPathToHtml = PathHelper.Combine(Program.InputFolder, localPath, "index.html");
         LocalPathToJson = PathHelper.Combine(Program.InputFolder, localPath, "meta.json");
 
-        FileName = mdConverter.ConvertToMdTitle(localPath);
-        Title = mdConverter.GetDocumentHeadingFromMdTitle(FileName);
+        FileName = MdConverter.ConvertToMdTitle(localPath);
+        Title = MdConverter.GetDocumentHeadingFromMdTitle(FileName);
         Tags = FileName.Split('_')[..^1];
-        
+
         LocalPathToMarkdown = PathHelper.Combine(Program.OutputFolder, localPath, FileName + ".md");
 
         string meta = File.ReadAllText(Path.Combine(Program.RunLocation, LocalPathToJson));
         Page page = JsonSerializer.Deserialize<Page>(meta);
-        
+
         WebTitle = page.Title;
         Url = page.URL;
         TimeAccessed = page.TimeAccessed.ToString();
@@ -59,9 +57,9 @@ tags: {TagsToMetadata()}
     {
         if (Tags.Length == 0)
         {
-            return "";
+            return "[]";
         }
-        
+
         StringBuilder sb = new StringBuilder();
         sb.Append("[ ");
         sb.Append(Tags[0]);
