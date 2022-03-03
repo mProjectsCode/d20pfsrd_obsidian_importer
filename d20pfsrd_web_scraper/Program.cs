@@ -70,7 +70,7 @@ internal class Program
         }
         else
         {
-            ParseTest("https://www.d20pfsrd.com/classes/");
+            ParseTest("https://www.d20pfsrd.com/classes/core-classes/druid/");
         }
         
     }
@@ -261,7 +261,6 @@ internal class Program
                     {
                         Console.WriteLine("Could convert links");
                         return new TaskRetObj(false);
-                        ;
                     }
                 }));
             }

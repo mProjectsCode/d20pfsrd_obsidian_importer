@@ -55,17 +55,31 @@ public class MdConverter
     {
         html = html.Trim();
 
+        // replace new line stuff
         html = html.Replace("\r\n", "\n");
         html = html.Replace("\r", "\n");
 
+        // remove html comments
         html = Regex.Replace(html, @"<!--.*?>", "");
 
+        // remove p tags
         html = Regex.Replace(html, @"</?p[^>]*>", "\n");
 
+        // remove span tags
         html = Regex.Replace(html, @"</?span[^>]*>", "");
 
+        // replace FAQs with block quote placeholders
+        MatchCollection faqs = Regex.Matches(html, "<div class=\"faq.*?\">");
+        html = AddQuotePlaceholders(html, faqs);
+        
+        // replace content sidebars with block quote placeholders
+        MatchCollection contentSidebars = Regex.Matches(html, "<div class=\"content-sidebar\">");
+        html = AddQuotePlaceholders(html, contentSidebars);
+
+        // replace divs
         html = Regex.Replace(html, @"</?div[^>]*>", "");
 
+        // replace headings
         html = Regex.Replace(html, @"<h1[^>]*>", "\n# ");
         html = Regex.Replace(html, @"</h1[^>]*>", "");
 
@@ -84,50 +98,77 @@ public class MdConverter
         html = Regex.Replace(html, @"<h6[^>]*>", "\n###### ");
         html = Regex.Replace(html, @"</h6[^>]*>", "");
 
-
+        // replace itallic tags
         html = Regex.Replace(html, @" *<i> *", " *");
         html = Regex.Replace(html, @" *</i> *", "* ");
 
+        // replace bold tags
         html = Regex.Replace(html, @" *<b> *", " **");
         html = Regex.Replace(html, @" *</b> *", "** ");
-
+        html = Regex.Replace(html, @" *<strong> *", " **");
+        html = Regex.Replace(html, @" *</strong> *", "** ");
+        
+        // replace lists
         html = Regex.Replace(html, @"</?ul[^>]*>", "\n");
-
         html = Regex.Replace(html, @"<li[^>]*>", " - ");
         html = Regex.Replace(html, @"</li>", "\n");
+        html = Regex.Replace(html, @" -  +", " - ");
 
+        // remove TOC anchors
         html = Regex.Replace(html, @"<a (name|id)[^>]*></a>", "");
 
+        // replace hr and br
         html = Regex.Replace(html, @"<br>", "\n");
         html = Regex.Replace(html, @"<hr>", "\n---\n");
 
         html = Regex.Replace(html, @"\* :", "*:");
 
-        html = Regex.Replace(html, "\n +?<", "\n<");
-
+        // remove all sort of empty line problems
         html = html.Replace("\r", "\n");
+        
         html = Regex.Replace(html, "\n\n\n+", "\n\n");
 
         // html = Regex.Replace(html, "\n#", "\n\n#");
-
+        html = Regex.Replace(html, "\n +?<", "\n<");
         html = Regex.Replace(html, "\n\n<", "\n<");
         html = Regex.Replace(html, "\n\n - ", "\n - ");
 
-        html = Regex.Replace(html, "&amp;", "&");
-        html = Regex.Replace(html, "&quot;", "\"");
-        html = Regex.Replace(html, "&#039;", "\'");
-        html = Regex.Replace(html, "&apos;", "\'");
-        html = Regex.Replace(html, "&#8217;", "\'");
+        // replace weired special characters with their normal counterparts
+        html = Regex.Replace(html, "&amp;", "&"); // & -> &
+        html = Regex.Replace(html, "&quot;", "\""); // " -> "
+        html = Regex.Replace(html, "&apos;", "\'"); // ' -> '
 
+        html = Regex.Replace(html, "&#034;", "\""); // " -> "
+        html = Regex.Replace(html, "&#039;", "\'"); // ' -> '
+        
+        html = Regex.Replace(html, "&#8216;", "\'"); // ‘ -> '
+        html = Regex.Replace(html, "&#8217;", "\'"); // ’ -> '
+        html = Regex.Replace(html, "&#8218;", "\'"); // ‚ -> '
+        
+        html = Regex.Replace(html, "&#8220;", "\""); // “ -> "
+        html = Regex.Replace(html, "&#8221;", "\""); // ” -> "
+        html = Regex.Replace(html, "&#8222;", "\""); // „ -> "
+        
+        html = Regex.Replace(html, "&#8211;", "--"); // – -> --
+        html = Regex.Replace(html, "&#8212;", "--"); // — -> --
+
+        // resolve all quote placeholders
+        html = ResolveQuotePlaceholders(html);
+
+        // add all the headings into the heading list
         MatchCollection headings = Regex.Matches(html, "#+? .+?\n");
         foreach (Match heading in headings)
         {
             string v = heading.Value;
+            // remove the hashtags from the beginning
             v = Regex.Replace(v, "#+? ", "");
+            // remove the new line from the end
             v = Regex.Replace(v, "\n", "");
             v = v.Trim();
+            // remove any links
             v = Regex.Replace(v, @"<a[^>]*>", "");
             v = Regex.Replace(v, @"</a>", "");
+            
             Headings[title].Add(v);
         }
 
@@ -136,9 +177,11 @@ public class MdConverter
 
     public static string ConvertToMdTitle(string relPath)
     {
+        // replace slashes with underscores
         string title = relPath.Replace('/', '_');
         title = title.Replace('\\', '_');
 
+        // replace fragment
         int hashtagIndex = title.IndexOf('#');
         string subTitle = "";
         if (hashtagIndex != -1)
@@ -156,11 +199,11 @@ public class MdConverter
             title = title.Remove(hashtagIndex);
         }
 
+        // trim trailing underscores
         if (title.EndsWith('_'))
         {
             title = title.Remove(title.Length - 1);
         }
-
         if (title.StartsWith('_'))
         {
             title = title[1..];
@@ -198,14 +241,18 @@ public class MdConverter
 
     public static string UpdateLinks(string html, string title)
     {
-        bool complainedAboutHTML = false;
+        // so that we only complain about the html once
+        bool complainedAboutHtml = false;
+        
         // get all a tags
         MatchCollection links = Regex.Matches(html, @"<a[^>]*>.*?</a>");
 
-        List<LinkReplacement> replacements = new List<LinkReplacement>();
+        List<Replacement> replacements = new List<Replacement>();
 
         StringBuilder linksAtEndOfFile = new StringBuilder();
         StringBuilder footer = new StringBuilder();
+        
+        // a index for generating the footer number
         int footerIndex = 1;
 
         foreach (Match match in links)
@@ -233,6 +280,7 @@ public class MdConverter
 
             // Console.WriteLine(href);
 
+            // if does not link to this site it is irrelevant
             if (!(href.StartsWith("https://www.d20pfsrd.com") || href.StartsWith("#")))
             {
                 continue;
@@ -247,7 +295,7 @@ public class MdConverter
                 bool hasFragment = false;
                 bool isInternalLink = false;
                 string fragment = "";
-                int hrefHashTagIndex = -1;
+                int hrefHashtagIndex = -1;
 
                 if (href.StartsWith('#'))
                 {
@@ -264,8 +312,8 @@ public class MdConverter
                     woFragmentPath = RemoveFragment(hrefPath);
                 }
 
-                hrefHashTagIndex = href.IndexOf('#');
-                if (hrefHashTagIndex != -1)
+                hrefHashtagIndex = href.IndexOf('#');
+                if (hrefHashtagIndex != -1)
                 {
                     hasFragment = true;
                 }
@@ -301,7 +349,7 @@ public class MdConverter
                 if (hasFragment)
                 {
                     string linkFile = ConvertToMdTitle(woFragmentPath);
-                    fragment = ConvertToMdTitle(href[hrefHashTagIndex..]);
+                    fragment = ConvertToMdTitle(href[hrefHashtagIndex..]);
                     fragment = fragment[1..];
 
                     // Console.WriteLine($"Fragment: {fragment}");
@@ -481,10 +529,10 @@ public class MdConverter
                     }
 
                     // Console.WriteLine("replaced href with wikilink");
-                    if (!complainedAboutHTML)
+                    if (!complainedAboutHtml)
                     {
                         Console.WriteLine("Something in the source HTML is wrong");
-                        complainedAboutHTML = true;
+                        complainedAboutHtml = true;
                     }
                 }
 
@@ -496,13 +544,13 @@ public class MdConverter
                     // Console.WriteLine(match.Value.Length);
                     // Console.WriteLine(nextLineStartIndex);
 
-                    replacements.Add(new LinkReplacement(content, match.Value.Length, match.Index));
+                    replacements.Add(new Replacement(content, match.Value.Length, match.Index));
 
-                    replacements.Add(new LinkReplacement($"\nLink from heading: {linkText}", 0, nextLineStartIndex));
+                    replacements.Add(new Replacement($"\nLink from heading: {linkText}", 0, nextLineStartIndex));
                 }
                 else
                 {
-                    replacements.Add(new LinkReplacement(linkText, match.Value.Length, match.Index));
+                    replacements.Add(new Replacement(linkText, match.Value.Length, match.Index));
                 }
 
                 footerIndex += 1;
@@ -514,14 +562,135 @@ public class MdConverter
             }
         }
 
-        LinkReplacement[] replacementsArr = replacements.ToArray();
+        Replacement[] replacementsArr = replacements.ToArray();
 
-        if (!IsSorted(replacementsArr))
+        StringBuilder output = Replace(html, replacementsArr);
+
+        output.Append("\n\n").Append(linksAtEndOfFile);
+
+        output.Append("\n\n").Append(footer);
+
+        return output.ToString();
+
+    }
+
+    public static string AddQuotePlaceholders(string html, MatchCollection matchCollection)
+    {
+        List<Replacement> replacements = new List<Replacement>();
+
+        foreach (Match match in matchCollection)
         {
-            replacementsArr = replacementsArr.OrderBy(x => x.Index).ToArray();
+            string subHtml = html[match.Index..];
+            MatchCollection openingTags = Regex.Matches(subHtml, @"<[^/]iv[^>]*?>");
+            MatchCollection closingTags = Regex.Matches(subHtml, @"<\/div[^>]*?>");
+            
+            // Console.WriteLine($"Opening tags count: {openingTags.Count}");
+            // Console.WriteLine($"Closing tags count: {closingTags.Count}");
+
+            Match? quoteEndTag = null;
+            int depth = 0;
+            bool foundFirst = false;
+            for (int i = 0; i < subHtml.Length; i++)
+            {
+                foreach (Match openingTag in openingTags)
+                {
+                    if (openingTag.Index > i)
+                    {
+                        break;
+                    }
+
+                    if (openingTag.Index == i)
+                    {
+                        depth += 1;
+                        foundFirst = true;
+                    }
+                }
+                
+                foreach (Match closingTag in closingTags)
+                {
+                    if (closingTag.Index > i)
+                    {
+                        break;
+                    }
+
+                    if (closingTag.Index == i)
+                    {
+                        depth -= 1;
+                    }
+                }
+
+                if (foundFirst && depth == 0)
+                {
+                    // Console.WriteLine(i);
+                    // Console.WriteLine(depth);
+                    quoteEndTag = closingTags.First(t => t.Index == i);
+                    break;
+                }
+            }
+
+            if (quoteEndTag == null)
+            {
+                continue;
+            }
+            
+            replacements.Add(new Replacement("---quoteStart---", match.Length, match.Index));
+            replacements.Add(new Replacement("---quoteEnd---", quoteEndTag.Length, match.Index + quoteEndTag.Index));
+        }
+        
+        Replacement[] replacementsArr = replacements.ToArray();
+
+        StringBuilder output = Replace(html, replacementsArr);
+
+        return output.ToString();
+    }
+
+    public static string ResolveQuotePlaceholders(string html)
+    {
+        Match[] quoteStarts = Regex.Matches(html, @"---quoteStart---").ToArray();
+        Match[] quoteEnds = Regex.Matches(html, @"---quoteEnd---").ToArray();
+
+        if (quoteStarts.Length != quoteEnds.Length)
+        {
+            Console.WriteLine("Quote Starts do not match Quote Ends");
+            return html;
+        }
+        
+        List<Replacement> replacements = new List<Replacement>();
+
+        for (int i = 0; i < quoteStarts.Length; i++)
+        {
+            string subHtml = html[quoteStarts[i].Index..(quoteEnds[i].Index + quoteEnds[i].Value.Length)];
+            int orgLength = subHtml.Length;
+
+            subHtml = subHtml.Replace(@"---quoteStart---", "");
+            subHtml = subHtml.Replace(@"---quoteEnd---", "");
+            subHtml = Regex.Replace(subHtml, "\n\n+", "\n");
+            subHtml = Regex.Replace(subHtml, "\n", "\n> ");
+            subHtml = Regex.Replace(subHtml, ">  +", "> ");
+            
+            if (subHtml.EndsWith("\n> "))
+            {
+                subHtml = subHtml[..^3];
+            }
+
+            replacements.Add(new Replacement(subHtml, orgLength, quoteStarts[i].Index));
+        }
+        
+        Replacement[] replacementsArr = replacements.ToArray();
+
+        StringBuilder output = Replace(html, replacementsArr);
+
+        return output.ToString();
+    }
+
+    public static StringBuilder Replace(string str, Replacement[] replacements)
+    {
+        if (!IsSorted(replacements))
+        {
+            replacements = replacements.OrderBy(x => x.Index).ToArray();
         }
 
-        string[] splitHtml = SplitAt(html, replacementsArr.Select(x => x.Index).ToArray());
+        string[] splitHtml = SplitAt(str, replacements.Select(x => x.Index).ToArray());
 
         // Console.WriteLine(replacementsArr.Length);
         // Console.WriteLine(splitHtml.Length);
@@ -537,17 +706,14 @@ public class MdConverter
             // Console.WriteLine();
 
             // remove the old link
-            string part = splitHtml[i][replacementsArr[i - 1].OriginalLength..];
+            string part = splitHtml[i][replacements[i - 1].OriginalLength..];
             // add new one
-            output.Append(replacementsArr[i - 1].Replacement).Append(part);
+            output.Append(replacements[i - 1].Value).Append(part);
         }
 
-        output.Append("\n\n").Append(linksAtEndOfFile);
-
-        output.Append("\n\n").Append(footer);
-
-        return output.ToString();
+        return output;
     }
+    
 
     public static string[] SplitAt(string source, params int[] index)
     {
@@ -564,7 +730,7 @@ public class MdConverter
         return output;
     }
 
-    public static bool IsSorted(LinkReplacement[] arr)
+    public static bool IsSorted(Replacement[] arr)
     {
         int last = arr.Length - 1;
         if (last < 1)
@@ -582,15 +748,15 @@ public class MdConverter
         return i == last;
     }
 
-    public struct LinkReplacement
+    public struct Replacement
     {
-        public string Replacement { get; set; }
+        public string Value { get; set; }
         public int OriginalLength { get; set; }
         public int Index { get; set; }
 
-        public LinkReplacement(string replacement, int originalLength, int index)
+        public Replacement(string value, int originalLength, int index)
         {
-            Replacement = replacement;
+            Value = value;
             OriginalLength = originalLength;
             Index = index;
         }
