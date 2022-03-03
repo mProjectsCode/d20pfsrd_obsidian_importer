@@ -281,7 +281,7 @@ public class MdConverter
             // Console.WriteLine(href);
 
             // if does not link to this site it is irrelevant
-            if (!(href.StartsWith("https://www.d20pfsrd.com") || href.StartsWith("#")))
+            if (!(href.StartsWith(GameSystem.GameSystemToLink[Program.System]) || href.StartsWith("#")))
             {
                 continue;
             }
@@ -329,8 +329,8 @@ public class MdConverter
                 // look if it is an internal link
                 if (!isInternalLink)
                 {
-                    string d20LinkWoFragment = "https://www.d20pfsrd.com" + woFragmentPath;
-                    if (Program.ContentLinksList.Contains(d20LinkWoFragment))
+                    string srdLinkWoFragment = GameSystem.GameSystemToLink[Program.System] + woFragmentPath;
+                    if (Program.ContentLinksList.Contains(srdLinkWoFragment))
                     {
                         isInternalLink = true;
                     }
@@ -455,14 +455,14 @@ public class MdConverter
                 if (hasFragment && !foundTOCItem)
                 {
                     mdTitle = RemoveFragment(mdTitle);
-                    string d20pfsrdLink = href;
+                    string srdLink = href;
 
                     if (isSelfLink)
                     {
-                        d20pfsrdLink = "https://www.d20pfsrd.com/" + title.Replace("_", "/") + href;
+                        srdLink = GameSystem.GameSystemToLink[Program.System] + "/" + title.Replace("_", "/") + href;
                     }
 
-                    footer.Append($"[^{footerIndex}]: TOC-Item: {fragment} \nd20pfsrd-Link: {d20pfsrdLink}\n");
+                    footer.Append($"[^{footerIndex}]: TOC-Item: {fragment} \n{GameSystem.GameSystemToPrefix[Program.System]}-Link: {srdLink}\n");
                 }
 
                 string linkText = "";

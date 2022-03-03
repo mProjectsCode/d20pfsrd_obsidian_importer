@@ -6,7 +6,7 @@ public class Page
 {
     public Page(string title, string url, string content, DateTime timeAccessed)
     {
-        const string titleFilter = " &#8211; d20PFSRD";
+        string titleFilter = GameSystem.GameSystemToTitlePostfix[Program.System];
         if (title.Contains(titleFilter))
         {
             title = title.Remove(title.Length - titleFilter.Length);
@@ -32,7 +32,7 @@ public class Page
         Uri uri = new Uri(URL);
         DirectoryInfo directoryInfo = Directory.CreateDirectory(PathHelper.Combine(Program.ScraperOutputLocation, uri.AbsolutePath));
         // Console.WriteLine(directoryInfo.FullName);
-        File.WriteAllText(directoryInfo.FullName + "index.html", Content);
-        File.WriteAllText(directoryInfo.FullName + "meta.json", JsonConvert.SerializeObject(this));
+        File.WriteAllText(PathHelper.Combine(directoryInfo.FullName, "index.html"), Content);
+        File.WriteAllText(PathHelper.Combine(directoryInfo.FullName, "meta.json"), JsonConvert.SerializeObject(this));
     }
 }

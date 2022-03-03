@@ -5,9 +5,9 @@ using HtmlAgilityPack;
 
 namespace d20pfsrd_web_scraper;
 
-public class D20pfsrdCrawler
+public class SrdCrawler
 {
-    public D20pfsrdCrawler()
+    public SrdCrawler()
     {
         Web = new HtmlWeb();
     }
@@ -16,7 +16,7 @@ public class D20pfsrdCrawler
 
     public void CrawlSitemap()
     {
-        string url = "https://www.d20pfsrd.com/sitemap.xml.gz";
+        string url = GameSystem.GameSystemToLink[Program.System] + "/sitemap.xml.gz";
 
         List<string> subSitemapLinks = CrawlSubSitemaps(url);
         List<string> contentLinks = new List<string>();
@@ -27,7 +27,7 @@ public class D20pfsrdCrawler
             contentLinks.AddRange(CrawlSubSitemaps(subSitemapLink));
         }
 
-        File.WriteAllLines(Program.RunLocation + "contentLinks.txt", contentLinks.ToArray());
+        File.WriteAllLines(PathHelper.Combine(Program.RunLocation, Program.ContentLinksFileName), contentLinks.ToArray());
 
         Console.WriteLine("\nFinished crawling site maps. Starting crawling of pages...\n");
 
@@ -52,7 +52,7 @@ public class D20pfsrdCrawler
 
         Console.WriteLine($"\nFinished crawling pages. Failed links count: {failedLinks.Count}");
 
-        File.WriteAllLines("failedLinks.txt", failedLinks.ToArray());
+        File.WriteAllLines(PathHelper.Combine(Program.RunLocation, Program.FailedLinksFileName), failedLinks.ToArray());
     }
 
     private List<string> CrawlSubSitemaps(string url)

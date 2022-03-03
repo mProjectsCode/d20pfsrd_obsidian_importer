@@ -8,14 +8,22 @@ internal class Program
     // Experimental, i dont think it is faster but not tested
     private const bool UseMultithreading = true; 
     // Weather to parse all file or just a test file
-    private const bool ParseAll = true; 
+    private const bool ParseAll = true;
 
+    public const string System = "dnd_5e";
+    
+    
     // Input folder of the scraped HTML
-    public const string InputFolder = "d20pfsrd";
+    public static string HtmlFolder = "";
     // Output folder of the parsed Markdown
-    public const string OutputFolder = "d20pfsrd_md";
+    public static string MarkdownFolder = "";
+    public static string ContentLinksFileName = "";
+    public static string FailedLinksFileName = "";
+    public static string HeadingMapFileName = "";
+    
+    
+    public static string ScraperOutputLocation = "";
     public static readonly string RunLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-    public static readonly string ScraperOutputLocation = PathHelper.Combine(RunLocation, "d20pfsrd");
 
     // A blacklist of domain that we do not want to scrap
     public static readonly string[] DomainBlackList =
@@ -37,18 +45,25 @@ internal class Program
 
     private static void Main(string[] args)
     {
+        HtmlFolder = GameSystem.GameSystemToPrefix[System] + "_html";
+        MarkdownFolder = GameSystem.GameSystemToPrefix[System] + "_md";
+        ContentLinksFileName = GameSystem.GameSystemToPrefix[System] + "_contentLinks.txt";
+        FailedLinksFileName = GameSystem.GameSystemToPrefix[System] + "_failedLinks.txt";
+        HeadingMapFileName = GameSystem.GameSystemToPrefix[System] + "_headingMap.json";
+        ScraperOutputLocation = PathHelper.Combine(RunLocation, HtmlFolder);
+        
         Console.WriteLine("---");
         Console.WriteLine("d20pfsrd obsidian importer");
         Console.WriteLine("---");
 
-        if (!File.Exists(PathHelper.Combine(RunLocation, "contentLinks.txt")))
+        if (!File.Exists(PathHelper.Combine(RunLocation, ContentLinksFileName)))
         {
             Console.WriteLine("Crawling sitemap...\n");
-            D20pfsrdCrawler d20pfsrdCrawler = new D20pfsrdCrawler();
-            d20pfsrdCrawler.CrawlSitemap();
+            SrdCrawler srdCrawler = new SrdCrawler();
+            srdCrawler.CrawlSitemap();
         }
 
-        ContentLinksList = File.ReadAllLines(PathHelper.Combine(RunLocation, "contentLinks.txt"));
+        ContentLinksList = File.ReadAllLines(PathHelper.Combine(RunLocation, ContentLinksFileName));
         Console.WriteLine("Loaded content links");
         Console.WriteLine("---");
 
@@ -66,7 +81,7 @@ internal class Program
                 ParseAllSync();
             }
 
-            File.WriteAllText(PathHelper.Combine(RunLocation, "headingMap.json"), JsonConvert.SerializeObject(MdConverter.Headings));
+            File.WriteAllText(PathHelper.Combine(RunLocation, HeadingMapFileName), JsonConvert.SerializeObject(MdConverter.Headings));
         }
         else
         {
@@ -80,12 +95,12 @@ internal class Program
         Console.WriteLine($"Converting Test file: {url}");
         Console.WriteLine("---");
         
-        MdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(RunLocation + "/headingMap.json"));
+        MdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(PathHelper.Combine(RunLocation, HeadingMapFileName)));
         Uri uri = new Uri(url);
         string filePath = uri.AbsolutePath;
 
         NoteMetadata noteMetadata = new NoteMetadata(filePath);
-        Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, noteMetadata.LocalPathToFolder));
+        Directory.CreateDirectory(PathHelper.Combine(RunLocation, MarkdownFolder, noteMetadata.LocalPathToFolder));
 
         Console.WriteLine("Note Metadata: ");
         Console.WriteLine(JsonConvert.SerializeObject(noteMetadata, Formatting.Indented));
@@ -110,14 +125,14 @@ internal class Program
             Console.WriteLine($"{i} of {ContentLinksList.Length}");
             // Console.WriteLine(filePath);
 
-            if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
+            if (File.Exists(PathHelper.Combine(RunLocation, HtmlFolder, filePath, "index.html")))
             {
                 NoteMetadata noteMetadata = new NoteMetadata(filePath);
 
                 try
                 {
                     string md = MdConverter.LoadAndConvert(noteMetadata);
-                    Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, noteMetadata.LocalPathToFolder));
+                    Directory.CreateDirectory(PathHelper.Combine(RunLocation, MarkdownFolder, noteMetadata.LocalPathToFolder));
                     File.WriteAllText(Path.Combine(RunLocation, noteMetadata.LocalPathToMarkdown), md);
                 }
                 catch (Exception)
@@ -137,14 +152,14 @@ internal class Program
             Console.WriteLine($"Links {i} of {ContentLinksList.Length}");
             // Console.WriteLine(filePath);
 
-            if (File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
+            if (File.Exists(PathHelper.Combine(RunLocation, HtmlFolder, filePath, "index.html")))
             {
                 NoteMetadata noteMetadata = new NoteMetadata(filePath);
 
                 try
                 {
                     string md = MdConverter.ConvertLinks(noteMetadata);
-                    Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, noteMetadata.LocalPathToFolder));
+                    Directory.CreateDirectory(PathHelper.Combine(RunLocation, MarkdownFolder, noteMetadata.LocalPathToFolder));
                     File.WriteAllText(Path.Combine(RunLocation, noteMetadata.LocalPathToMarkdown), md);
                 }
                 catch (Exception)
@@ -189,7 +204,7 @@ internal class Program
                     // Console.WriteLine($"{num} of {ContentLinksList.Length}");
                     // Console.WriteLine(filePath);
 
-                    if (!File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
+                    if (!File.Exists(PathHelper.Combine(RunLocation, HtmlFolder, filePath, "index.html")))
                     {
                         return new TaskRetObj(false);
                     }
@@ -218,7 +233,7 @@ internal class Program
                     continue;
                 }
 
-                Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, taskRetObj.NoteMetadata.LocalPathToFolder));
+                Directory.CreateDirectory(PathHelper.Combine(RunLocation, MarkdownFolder, taskRetObj.NoteMetadata.LocalPathToFolder));
                 File.WriteAllText(Path.Combine(RunLocation, taskRetObj.NoteMetadata.LocalPathToMarkdown), taskRetObj.Md);
             }
         }
@@ -246,7 +261,7 @@ internal class Program
                     Console.WriteLine($"{num} of {ContentLinksList.Length}");
                     // Console.WriteLine(filePath);
 
-                    if (!File.Exists(PathHelper.Combine(RunLocation, InputFolder, filePath, "index.html")))
+                    if (!File.Exists(PathHelper.Combine(RunLocation, HtmlFolder, filePath, "index.html")))
                     {
                         return new TaskRetObj(false);
                     }
@@ -274,7 +289,7 @@ internal class Program
                     continue;
                 }
 
-                Directory.CreateDirectory(PathHelper.Combine(RunLocation, OutputFolder, taskRetObj.NoteMetadata.LocalPathToFolder));
+                Directory.CreateDirectory(PathHelper.Combine(RunLocation, MarkdownFolder, taskRetObj.NoteMetadata.LocalPathToFolder));
                 File.WriteAllText(Path.Combine(RunLocation, taskRetObj.NoteMetadata.LocalPathToMarkdown), taskRetObj.Md);
             }
         }
