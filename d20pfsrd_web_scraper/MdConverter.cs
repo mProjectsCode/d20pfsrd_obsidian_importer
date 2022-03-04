@@ -75,6 +75,10 @@ public class MdConverter
         // replace content sidebars with block quote placeholders
         MatchCollection contentSidebars = Regex.Matches(html, "<div class=\"content-sidebar\">");
         html = AddQuotePlaceholders(html, contentSidebars);
+        
+        // replace blockquote tags with block quote placeholders
+        MatchCollection blockQuotes = Regex.Matches(html, "<blockquote>");
+        html = AddQuotePlaceholders(html, blockQuotes);
 
         // replace divs
         html = Regex.Replace(html, @"</?div[^>]*>", "");
@@ -122,6 +126,15 @@ public class MdConverter
         html = Regex.Replace(html, @"<hr>", "\n---\n");
 
         html = Regex.Replace(html, @"\* :", "*:");
+        html = Regex.Replace(html, @"\* \.", "*.");
+        html = Regex.Replace(html, @"\* ,", "*,");
+        
+        html = Regex.Replace(html, @"\* \)", "*)");
+        html = Regex.Replace(html, @"\( \*", "(*");
+        html = Regex.Replace(html, @"\* \}", "*}");
+        html = Regex.Replace(html, @"\{ \*", "{*");
+        html = Regex.Replace(html, @"\* \]", "*]");
+        html = Regex.Replace(html, @"\[ \*", "[*");
 
         // remove all sort of empty line problems
         html = html.Replace("\r", "\n");
@@ -151,6 +164,16 @@ public class MdConverter
         
         html = Regex.Replace(html, "&#8211;", "--"); // – -> --
         html = Regex.Replace(html, "&#8212;", "--"); // — -> --
+        
+        
+        html = Regex.Replace(html, "’", "\'"); // ’ -> '
+        html = Regex.Replace(html, "“", "\""); // “ -> "
+        html = Regex.Replace(html, "”", "\""); // ” -> "
+        html = Regex.Replace(html, "—", "-"); // — -> -
+        
+        html = Regex.Replace(html, " ", " "); // NBSP -> NORMAL FUCKING SPACE
+        html = Regex.Replace(html, "	", " "); // EM SPACE -> NORMAL FUCKING SPACE
+        
 
         // resolve all quote placeholders
         html = ResolveQuotePlaceholders(html);
@@ -581,8 +604,8 @@ public class MdConverter
         foreach (Match match in matchCollection)
         {
             string subHtml = html[match.Index..];
-            MatchCollection openingTags = Regex.Matches(subHtml, @"<[^/]iv[^>]*?>");
-            MatchCollection closingTags = Regex.Matches(subHtml, @"<\/div[^>]*?>");
+            MatchCollection openingTags = Regex.Matches(subHtml, @"(<div[^>]*?>|<blockquote[^>]*?>)");
+            MatchCollection closingTags = Regex.Matches(subHtml, @"(<\/div[^>]*?>|<\/blockquote[^>]*?>)");
             
             // Console.WriteLine($"Opening tags count: {openingTags.Count}");
             // Console.WriteLine($"Closing tags count: {closingTags.Count}");

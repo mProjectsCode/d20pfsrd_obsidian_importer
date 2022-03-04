@@ -10,7 +10,7 @@ internal class Program
     // Weather to parse all file or just a test file
     private const bool ParseAll = true;
 
-    public const string System = "dnd_5e";
+    public const string System = GameSystem.DND_5E;
     
     
     // Input folder of the scraped HTML
@@ -85,7 +85,7 @@ internal class Program
         }
         else
         {
-            ParseTest("https://www.d20pfsrd.com/classes/core-classes/druid/");
+            ParseTest("https://www.5esrd.com/classes/fighter/");
         }
         
     }
