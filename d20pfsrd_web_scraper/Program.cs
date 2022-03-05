@@ -9,8 +9,9 @@ internal class Program
     private const bool UseMultithreading = true; 
     // Weather to parse all file or just a test file
     private const bool ParseAll = true;
+    private const bool SkipParsing = true;
 
-    public const string System = GameSystem.DND_5E;
+    public const string System = GameSystem.PATHFINDER_1E;
     
     
     // Input folder of the scraped HTML
@@ -20,6 +21,7 @@ internal class Program
     public static string ContentLinksFileName = "";
     public static string FailedLinksFileName = "";
     public static string HeadingMapFileName = "";
+    public static string FileOverridesFolderName = "";
     
     
     public static string ScraperOutputLocation = "";
@@ -50,6 +52,7 @@ internal class Program
         ContentLinksFileName = GameSystem.GameSystemToPrefix[System] + "_contentLinks.txt";
         FailedLinksFileName = GameSystem.GameSystemToPrefix[System] + "_failedLinks.txt";
         HeadingMapFileName = GameSystem.GameSystemToPrefix[System] + "_headingMap.json";
+        FileOverridesFolderName = GameSystem.GameSystemToPrefix[System] + "_overrides";
         ScraperOutputLocation = PathHelper.Combine(RunLocation, HtmlFolder);
         
         Console.WriteLine("---");
@@ -72,22 +75,66 @@ internal class Program
 
         if (ParseAll)
         {
-            if (UseMultithreading)
+            if (!SkipParsing)
             {
-                ParseAllAsync();
-            }
-            else
-            {
-                ParseAllSync();
+                if (UseMultithreading)
+                {
+                    ParseAllAsync();
+                }
+                else
+                {
+                    ParseAllSync();
+                }
+    
+                File.WriteAllText(PathHelper.Combine(RunLocation, HeadingMapFileName), JsonConvert.SerializeObject(MdConverter.Headings));
             }
 
-            File.WriteAllText(PathHelper.Combine(RunLocation, HeadingMapFileName), JsonConvert.SerializeObject(MdConverter.Headings));
+            ResolveFileOverrides();
         }
         else
         {
             ParseTest("https://www.5esrd.com/classes/fighter/");
         }
         
+    }
+
+    private static void ResolveFileOverrides()
+    {
+        Console.WriteLine("Copying file overrides");
+        Console.WriteLine("---");
+        
+        string fileOverridesPath = PathHelper.Combine(RunLocation, FileOverridesFolderName);
+        
+        if (!Directory.Exists(fileOverridesPath))
+        {
+            Console.WriteLine("There is not directory to copy from");
+            return;
+        }
+        
+        foreach (string file in Directory.GetFiles(fileOverridesPath))
+        {
+            string fileName = PathHelper.GetName(file);
+            
+            
+            if (fileName.StartsWith('_'))
+            {
+                continue;
+            }
+
+            string filePath = PathHelper.ConvertMdTitleToPath(fileName);
+            // filePath = PathHelper.Combine(filePath, fileName);
+
+            string copyToFolder = PathHelper.Combine(RunLocation, MarkdownFolder, filePath);
+            Directory.CreateDirectory(copyToFolder);
+            string copyToPath = PathHelper.Combine(copyToFolder, fileName);
+            
+            Console.WriteLine($"copying {fileName} to {copyToPath}");
+            
+            File.Copy(file, copyToPath, true);
+        }
+        Console.WriteLine("---");
+        Console.WriteLine("Successfully copied file overrides");
+        Console.WriteLine("---");
     }
 
     private static void ParseTest(string url)

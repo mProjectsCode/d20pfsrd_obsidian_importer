@@ -13,4 +13,17 @@
         <PackageReference Include="ReverseMarkdown" Version="3.23.0" />
     </ItemGroup>
 
+    <ItemGroup>
+        <ContentWithTargetPath Include="fileOverrides\**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>%(RecursiveDir)\%(Filename)%(Extension)</TargetPath>
+        </ContentWithTargetPath>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Include="fileOverrides\5esrd_overrides\home.md" />
+      <Content Include="fileOverrides\5esrd_overrides\_readme.md" />
+      <Content Include="fileOverrides\d20pfsrd_overrides\home.md" />
+      <Content Include="fileOverrides\d20pfsrd_overrides\_readme.md" />
+    </ItemGroup>
 </Project>
