@@ -1,7 +1,9 @@
 ﻿# File Overrides
+
 Every file in this folder not prefixed with a '_' will be copied over into the vault.
 
 ### Example
+
 `_readme.md` will not be copied
 
 `readme.md` will be copied

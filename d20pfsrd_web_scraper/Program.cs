@@ -1,31 +1,39 @@
 ﻿using System.Reflection;
+using System.Runtime.Serialization;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace d20pfsrd_web_scraper;
 
 internal class Program
 {
-    // Experimental, i dont think it is faster but not tested
-    private const bool UseMultithreading = true; 
-    // Weather to parse all file or just a test file
     private const bool ParseAll = true;
-    private const bool SkipParsing = true;
 
-    public const string System = GameSystem.PATHFINDER_1E;
-    
-    
+    public static string System = "";
+
     // Input folder of the scraped HTML
     public static string HtmlFolder = "";
+
     // Output folder of the parsed Markdown
     public static string MarkdownFolder = "";
     public static string ContentLinksFileName = "";
     public static string FailedLinksFileName = "";
     public static string HeadingMapFileName = "";
     public static string FileOverridesFolderName = "";
-    
-    
+
     public static string ScraperOutputLocation = "";
     public static readonly string RunLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
+
+    public static readonly ILoggerFactory LFactory = LoggerFactory.Create(builder =>
+    {
+        builder.AddFilter("Microsoft", LogLevel.Warning)
+            .AddFilter("System", LogLevel.Warning)
+            .AddFilter("d20pfsrd_web_scraper", LogLevel.Debug)
+            .AddConsole();
+    });
+
+    public static Config Config;
 
     // A blacklist of domain that we do not want to scrap
     public static readonly string[] DomainBlackList =
@@ -47,6 +55,41 @@ internal class Program
 
     private static void Main(string[] args)
     {
+        Console.WriteLine("---");
+        Console.WriteLine("d20pfsrd obsidian importer");
+        Console.WriteLine("---");
+
+
+        Config = new Config();
+
+        try
+        {
+            Config.ReadConfig();
+        }
+        catch (Exception e) when (e is SerializationException or FormatException)
+        {
+            Console.WriteLine("ERROR: Could not read config");
+            Console.WriteLine(e.Message);
+            return;
+        }
+
+        Console.WriteLine("Loaded Config");
+        Console.WriteLine("---");
+
+        try
+        {
+            System = GameSystem.ValidateSystem(Config.Options.GameSystem);
+            Console.WriteLine($"Converting SRD for {System}");
+            Console.WriteLine("---");
+        }
+        catch (Exception e) when (e is ArgumentException)
+        {
+            Console.WriteLine("ERROR: System invalid");
+            Console.WriteLine(e.Message);
+            return;
+        }
+
+
         HtmlFolder = GameSystem.GameSystemToPrefix[System] + "_html";
         MarkdownFolder = GameSystem.GameSystemToPrefix[System] + "_md";
         ContentLinksFileName = GameSystem.GameSystemToPrefix[System] + "_contentLinks.txt";
@@ -54,14 +97,10 @@ internal class Program
         HeadingMapFileName = GameSystem.GameSystemToPrefix[System] + "_headingMap.json";
         FileOverridesFolderName = GameSystem.GameSystemToPrefix[System] + "_overrides";
         ScraperOutputLocation = PathHelper.Combine(RunLocation, HtmlFolder);
-        
-        Console.WriteLine("---");
-        Console.WriteLine("d20pfsrd obsidian importer");
-        Console.WriteLine("---");
 
         if (!File.Exists(PathHelper.Combine(RunLocation, ContentLinksFileName)))
         {
-            Console.WriteLine("Crawling sitemap...\n");
+            Console.WriteLine("Crawling sitemap...");
             SrdCrawler srdCrawler = new SrdCrawler();
             srdCrawler.CrawlSitemap();
         }
@@ -75,9 +114,9 @@ internal class Program
 
         if (ParseAll)
         {
-            if (!SkipParsing)
+            if (!Config.Options.SkipParsing)
             {
-                if (UseMultithreading)
+                if (Config.Options.ParseAsync)
                 {
                     ParseAllAsync();
                 }
@@ -85,8 +124,12 @@ internal class Program
                 {
                     ParseAllSync();
                 }
-    
+
                 File.WriteAllText(PathHelper.Combine(RunLocation, HeadingMapFileName), JsonConvert.SerializeObject(MdConverter.Headings));
+            }
+            else
+            {
+                Console.WriteLine("Skipped parsing the vault");
             }
 
             ResolveFileOverrides();
@@ -95,27 +138,27 @@ internal class Program
         {
             ParseTest("https://www.5esrd.com/classes/fighter/");
         }
-        
     }
 
     private static void ResolveFileOverrides()
     {
+        Console.WriteLine("---");
         Console.WriteLine("Copying file overrides");
         Console.WriteLine("---");
-        
+
         string fileOverridesPath = PathHelper.Combine(RunLocation, FileOverridesFolderName);
-        
+
         if (!Directory.Exists(fileOverridesPath))
         {
             Console.WriteLine("There is not directory to copy from");
             return;
         }
-        
+
         foreach (string file in Directory.GetFiles(fileOverridesPath))
         {
             string fileName = PathHelper.GetName(file);
-            
-            
+
+
             if (fileName.StartsWith('_'))
             {
                 continue;
@@ -127,11 +170,12 @@ internal class Program
             string copyToFolder = PathHelper.Combine(RunLocation, MarkdownFolder, filePath);
             Directory.CreateDirectory(copyToFolder);
             string copyToPath = PathHelper.Combine(copyToFolder, fileName);
-            
+
             Console.WriteLine($"copying {fileName} to {copyToPath}");
-            
+
             File.Copy(file, copyToPath, true);
         }
+
         Console.WriteLine("---");
         Console.WriteLine("Successfully copied file overrides");
         Console.WriteLine("---");
@@ -141,7 +185,7 @@ internal class Program
     {
         Console.WriteLine($"Converting Test file: {url}");
         Console.WriteLine("---");
-        
+
         MdConverter.Headings = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(PathHelper.Combine(RunLocation, HeadingMapFileName)));
         Uri uri = new Uri(url);
         string filePath = uri.AbsolutePath;
@@ -161,9 +205,9 @@ internal class Program
 
     private static void ParseAllSync()
     {
-        Console.WriteLine($"Converting all in sync");
+        Console.WriteLine("Converting all in sync");
         Console.WriteLine("---");
-        
+
         int i = 0;
         foreach (string contentLink in ContentLinksList)
         {
@@ -222,9 +266,9 @@ internal class Program
 
     private static void ParseAllAsync()
     {
-        Console.WriteLine($"Converting all async");
+        Console.WriteLine("Converting all async");
         Console.WriteLine("---");
-        
+
         const int batchSize = 1000;
         int numberOfBatches = (int) Math.Ceiling(ContentLinksList.Length / (double) batchSize);
 

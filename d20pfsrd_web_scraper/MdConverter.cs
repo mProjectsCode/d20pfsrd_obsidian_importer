@@ -5,6 +5,9 @@ namespace d20pfsrd_web_scraper;
 
 public class MdConverter
 {
+    private const string BlockQuoteStartIndicator = "===bqStart===";
+    private const string BlockQuoteEndIndicator = "===bqEnd===";
+
     public static Dictionary<string, List<string>> Headings;
 
     public static void Init()
@@ -71,11 +74,11 @@ public class MdConverter
         // replace FAQs with block quote placeholders
         MatchCollection faqs = Regex.Matches(html, "<div class=\"faq.*?\">");
         html = AddQuotePlaceholders(html, faqs);
-        
+
         // replace content sidebars with block quote placeholders
         MatchCollection contentSidebars = Regex.Matches(html, "<div class=\"content-sidebar\">");
         html = AddQuotePlaceholders(html, contentSidebars);
-        
+
         // replace blockquote tags with block quote placeholders
         MatchCollection blockQuotes = Regex.Matches(html, "<blockquote>");
         html = AddQuotePlaceholders(html, blockQuotes);
@@ -111,7 +114,7 @@ public class MdConverter
         html = Regex.Replace(html, @" *</b> *", "** ");
         html = Regex.Replace(html, @" *<strong> *", " **");
         html = Regex.Replace(html, @" *</strong> *", "** ");
-        
+
         // replace lists
         html = Regex.Replace(html, @"</?ul[^>]*>", "\n");
         html = Regex.Replace(html, @"<li[^>]*>", " - ");
@@ -125,10 +128,10 @@ public class MdConverter
         html = Regex.Replace(html, @"<br>", "\n");
         html = Regex.Replace(html, @"<hr>", "\n---\n");
 
+        // Clean up spaces before or after :,.()[]{}
         html = Regex.Replace(html, @"\* :", "*:");
         html = Regex.Replace(html, @"\* \.", "*.");
         html = Regex.Replace(html, @"\* ,", "*,");
-        
         html = Regex.Replace(html, @"\* \)", "*)");
         html = Regex.Replace(html, @"\( \*", "(*");
         html = Regex.Replace(html, @"\* \}", "*}");
@@ -138,7 +141,6 @@ public class MdConverter
 
         // remove all sort of empty line problems
         html = html.Replace("\r", "\n");
-        
         html = Regex.Replace(html, "\n\n\n+", "\n\n");
 
         // html = Regex.Replace(html, "\n#", "\n\n#");
@@ -153,27 +155,26 @@ public class MdConverter
 
         html = Regex.Replace(html, "&#034;", "\""); // " -> "
         html = Regex.Replace(html, "&#039;", "\'"); // ' -> '
-        
+
         html = Regex.Replace(html, "&#8216;", "\'"); // ‘ -> '
         html = Regex.Replace(html, "&#8217;", "\'"); // ’ -> '
         html = Regex.Replace(html, "&#8218;", "\'"); // ‚ -> '
-        
+
         html = Regex.Replace(html, "&#8220;", "\""); // “ -> "
         html = Regex.Replace(html, "&#8221;", "\""); // ” -> "
         html = Regex.Replace(html, "&#8222;", "\""); // „ -> "
-        
+
         html = Regex.Replace(html, "&#8211;", "--"); // – -> --
         html = Regex.Replace(html, "&#8212;", "--"); // — -> --
-        
-        
+
         html = Regex.Replace(html, "’", "\'"); // ’ -> '
         html = Regex.Replace(html, "“", "\""); // “ -> "
         html = Regex.Replace(html, "”", "\""); // ” -> "
         html = Regex.Replace(html, "—", "-"); // — -> -
-        
+
         html = Regex.Replace(html, " ", " "); // NBSP -> NORMAL FUCKING SPACE
         html = Regex.Replace(html, "	", " "); // EM SPACE -> NORMAL FUCKING SPACE
-        
+
 
         // resolve all quote placeholders
         html = ResolveQuotePlaceholders(html);
@@ -191,7 +192,7 @@ public class MdConverter
             // remove any links
             v = Regex.Replace(v, @"<a[^>]*>", "");
             v = Regex.Replace(v, @"</a>", "");
-            
+
             Headings[title].Add(v);
         }
 
@@ -227,6 +228,7 @@ public class MdConverter
         {
             title = title.Remove(title.Length - 1);
         }
+
         if (title.StartsWith('_'))
         {
             title = title[1..];
@@ -266,7 +268,7 @@ public class MdConverter
     {
         // so that we only complain about the html once
         bool complainedAboutHtml = false;
-        
+
         // get all a tags
         MatchCollection links = Regex.Matches(html, @"<a[^>]*>.*?</a>");
 
@@ -274,7 +276,7 @@ public class MdConverter
 
         StringBuilder linksAtEndOfFile = new StringBuilder();
         StringBuilder footer = new StringBuilder();
-        
+
         // a index for generating the footer number
         int footerIndex = 1;
 
@@ -594,7 +596,6 @@ public class MdConverter
         output.Append("\n\n").Append(footer);
 
         return output.ToString();
-
     }
 
     public static string AddQuotePlaceholders(string html, MatchCollection matchCollection)
@@ -606,7 +607,7 @@ public class MdConverter
             string subHtml = html[match.Index..];
             MatchCollection openingTags = Regex.Matches(subHtml, @"(<div[^>]*?>|<blockquote[^>]*?>)");
             MatchCollection closingTags = Regex.Matches(subHtml, @"(<\/div[^>]*?>|<\/blockquote[^>]*?>)");
-            
+
             // Console.WriteLine($"Opening tags count: {openingTags.Count}");
             // Console.WriteLine($"Closing tags count: {closingTags.Count}");
 
@@ -628,7 +629,7 @@ public class MdConverter
                         foundFirst = true;
                     }
                 }
-                
+
                 foreach (Match closingTag in closingTags)
                 {
                     if (closingTag.Index > i)
@@ -655,11 +656,11 @@ public class MdConverter
             {
                 continue;
             }
-            
-            replacements.Add(new Replacement("---quoteStart---", match.Length, match.Index));
-            replacements.Add(new Replacement("---quoteEnd---", quoteEndTag.Length, match.Index + quoteEndTag.Index));
+
+            replacements.Add(new Replacement(BlockQuoteStartIndicator, match.Length, match.Index));
+            replacements.Add(new Replacement(BlockQuoteEndIndicator, quoteEndTag.Length, match.Index + quoteEndTag.Index));
         }
-        
+
         Replacement[] replacementsArr = replacements.ToArray();
 
         StringBuilder output = Replace(html, replacementsArr);
@@ -669,15 +670,15 @@ public class MdConverter
 
     public static string ResolveQuotePlaceholders(string html)
     {
-        Match[] quoteStarts = Regex.Matches(html, @"---quoteStart---").ToArray();
-        Match[] quoteEnds = Regex.Matches(html, @"---quoteEnd---").ToArray();
+        Match[] quoteStarts = Regex.Matches(html, BlockQuoteStartIndicator).ToArray();
+        Match[] quoteEnds = Regex.Matches(html, BlockQuoteEndIndicator).ToArray();
 
         if (quoteStarts.Length != quoteEnds.Length)
         {
             Console.WriteLine("Quote Starts do not match Quote Ends");
             return html;
         }
-        
+
         List<Replacement> replacements = new List<Replacement>();
 
         for (int i = 0; i < quoteStarts.Length; i++)
@@ -685,12 +686,13 @@ public class MdConverter
             string subHtml = html[quoteStarts[i].Index..(quoteEnds[i].Index + quoteEnds[i].Value.Length)];
             int orgLength = subHtml.Length;
 
-            subHtml = subHtml.Replace(@"---quoteStart---", "");
-            subHtml = subHtml.Replace(@"---quoteEnd---", "");
+            subHtml = subHtml.Replace(BlockQuoteStartIndicator, "");
+            subHtml = subHtml.Replace(BlockQuoteEndIndicator, "");
+            // clean up empty lines and double spaces
             subHtml = Regex.Replace(subHtml, "\n\n+", "\n");
             subHtml = Regex.Replace(subHtml, "\n", "\n> ");
             subHtml = Regex.Replace(subHtml, ">  +", "> ");
-            
+
             if (subHtml.EndsWith("\n> "))
             {
                 subHtml = subHtml[..^3];
@@ -698,7 +700,7 @@ public class MdConverter
 
             replacements.Add(new Replacement(subHtml, orgLength, quoteStarts[i].Index));
         }
-        
+
         Replacement[] replacementsArr = replacements.ToArray();
 
         StringBuilder output = Replace(html, replacementsArr);
@@ -736,7 +738,7 @@ public class MdConverter
 
         return output;
     }
-    
+
 
     public static string[] SplitAt(string source, params int[] index)
     {

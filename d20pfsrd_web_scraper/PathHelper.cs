@@ -55,18 +55,18 @@ public class PathHelper
 
         return path;
     }
-    
+
     public static string ConvertMdTitleToPath(string mdTitle)
     {
         string[] a = mdTitle.Split('_');
 
         return string.Join('/', a[..^1]);
     }
-    
+
     public static string GetName(string path)
     {
         path = TrimSlashes(path);
-        
+
         string[] a = path.Split('/');
 
         return a[^1];
