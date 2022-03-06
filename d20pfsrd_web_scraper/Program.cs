@@ -58,6 +58,9 @@ internal class Program
         Console.WriteLine("---");
         Console.WriteLine("d20pfsrd obsidian importer");
         Console.WriteLine("---");
+        
+        Console.WriteLine($"Run location: {RunLocation}");
+        Console.WriteLine("---");
 
 
         Config = new Config();
