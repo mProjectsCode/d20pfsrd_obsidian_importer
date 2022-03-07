@@ -58,7 +58,7 @@ internal class Program
         Console.WriteLine("---");
         Console.WriteLine("d20pfsrd obsidian importer");
         Console.WriteLine("---");
-        
+
         Console.WriteLine($"Run location: {RunLocation}");
         Console.WriteLine("---");
 
@@ -139,7 +139,7 @@ internal class Program
         }
         else
         {
-            ParseTest("https://www.5esrd.com/classes/fighter/");
+            ParseTest("https://www.d20pfsrd.com/classes/core-classes/druid/");
         }
     }
 
@@ -193,7 +193,7 @@ internal class Program
         Uri uri = new Uri(url);
         string filePath = uri.AbsolutePath;
 
-        NoteMetadata noteMetadata = new NoteMetadata(filePath);
+        NoteMetadata noteMetadata = new NoteMetadata(filePath, PathMappings.GetMapping(filePath));
         Directory.CreateDirectory(PathHelper.Combine(RunLocation, MarkdownFolder, noteMetadata.LocalPathToFolder));
 
         Console.WriteLine("Note Metadata: ");
@@ -221,7 +221,7 @@ internal class Program
 
             if (File.Exists(PathHelper.Combine(RunLocation, HtmlFolder, filePath, "index.html")))
             {
-                NoteMetadata noteMetadata = new NoteMetadata(filePath);
+                NoteMetadata noteMetadata = new NoteMetadata(filePath, PathMappings.GetMapping(filePath));
 
                 try
                 {
@@ -248,7 +248,7 @@ internal class Program
 
             if (File.Exists(PathHelper.Combine(RunLocation, HtmlFolder, filePath, "index.html")))
             {
-                NoteMetadata noteMetadata = new NoteMetadata(filePath);
+                NoteMetadata noteMetadata = new NoteMetadata(filePath, PathMappings.GetMapping(filePath));
 
                 try
                 {
@@ -303,17 +303,17 @@ internal class Program
                         return new TaskRetObj(false);
                     }
 
-                    NoteMetadata noteMetadata = new NoteMetadata(filePath);
+                    NoteMetadata noteMetadata = new NoteMetadata(filePath, PathMappings.GetMapping(filePath));
 
                     try
                     {
                         return new TaskRetObj(noteMetadata, MdConverter.LoadAndConvert(noteMetadata));
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
                         Console.WriteLine("Could not create md file");
+                        Console.WriteLine(e.Message);
                         return new TaskRetObj(false);
-                        ;
                     }
                 }));
             }
@@ -360,7 +360,7 @@ internal class Program
                         return new TaskRetObj(false);
                     }
 
-                    NoteMetadata noteMetadata = new NoteMetadata(filePath);
+                    NoteMetadata noteMetadata = new NoteMetadata(filePath, PathMappings.GetMapping(filePath));
 
                     try
                     {

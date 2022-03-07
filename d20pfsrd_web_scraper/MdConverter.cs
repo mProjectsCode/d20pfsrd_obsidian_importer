@@ -16,7 +16,7 @@ public class MdConverter
         foreach (string contentLink in Program.ContentLinksList)
         {
             Uri hrefUri = new Uri(contentLink);
-            string hrefPath = hrefUri.AbsolutePath;
+            string hrefPath = PathMappings.GetMapping(hrefUri.AbsolutePath);
 
             Headings[ConvertToMdTitle(hrefPath)] = new List<string>();
         }
@@ -119,7 +119,7 @@ public class MdConverter
         html = Regex.Replace(html, @"</?ul[^>]*>", "\n");
         html = Regex.Replace(html, @"<li[^>]*>", " - ");
         html = Regex.Replace(html, @"</li>", "\n");
-        html = Regex.Replace(html, @" -  +", " - ");
+        html = Regex.Replace(html, @" +- +", " - ");
 
         // remove TOC anchors
         html = Regex.Replace(html, @"<a (name|id)[^>]*></a>", "");
@@ -141,12 +141,13 @@ public class MdConverter
 
         // remove all sort of empty line problems
         html = html.Replace("\r", "\n");
+        html = Regex.Replace(html, " +\n", "\n");
         html = Regex.Replace(html, "\n\n\n+", "\n\n");
 
         // html = Regex.Replace(html, "\n#", "\n\n#");
-        html = Regex.Replace(html, "\n +?<", "\n<");
-        html = Regex.Replace(html, "\n\n<", "\n<");
-        html = Regex.Replace(html, "\n\n - ", "\n - ");
+        html = Regex.Replace(html, "\n +<", "\n<");
+        html = Regex.Replace(html, "\n\n+<", "\n<");
+        html = Regex.Replace(html, "\n\n+ - ", "\n - ");
 
         // replace weired special characters with their normal counterparts
         html = Regex.Replace(html, "&amp;", "&"); // & -> &
@@ -324,17 +325,18 @@ public class MdConverter
 
                 if (href.StartsWith('#'))
                 {
+                    isSelfLink = true;
+
                     hrefPath = href;
                     woFragmentPath = href;
-                    isSelfLink = true;
                     hasFragment = true;
                     isInternalLink = true;
                 }
                 else
                 {
                     Uri hrefUri = new Uri(href);
-                    hrefPath = hrefUri.AbsolutePath + hrefUri.Fragment;
-                    woFragmentPath = RemoveFragment(hrefPath);
+                    woFragmentPath = PathMappings.GetMapping(hrefUri.AbsolutePath);
+                    hrefPath = woFragmentPath + hrefUri.Fragment;
                 }
 
                 hrefHashtagIndex = href.IndexOf('#');
@@ -354,8 +356,14 @@ public class MdConverter
                 // look if it is an internal link
                 if (!isInternalLink)
                 {
-                    string srdLinkWoFragment = GameSystem.GameSystemToLink[Program.System] + woFragmentPath;
-                    if (Program.ContentLinksList.Contains(srdLinkWoFragment))
+                    string orgLink = RemoveFragment(href);
+
+                    if (!orgLink.EndsWith("/"))
+                    {
+                        orgLink += "/";
+                    }
+
+                    if (Program.ContentLinksList.Contains(orgLink))
                     {
                         isInternalLink = true;
                     }
@@ -368,7 +376,6 @@ public class MdConverter
                 }
 
                 bool foundTOCItem = false;
-                string TOCItem = "";
 
                 // Console.WriteLine($"hasFragment: {hasFragment}");
                 if (hasFragment)
@@ -401,23 +408,8 @@ public class MdConverter
                         if (h == f)
                         {
                             foundTOCItem = true;
-                            TOCItem = heading;
                         }
                     }
-
-                    /*
-                    if (!foundTOCItem)
-                    {
-                        foreach (string heading in Headings[hrefWoFragment])
-                        {
-                            if (heading.Contains(hrefUri.Fragment))
-                            {
-                                foundTOCItem = true;
-                                TOCItem = heading;
-                            }
-                        }
-                    }
-                    */
                 }
 
                 // find out weather 
@@ -515,23 +507,15 @@ public class MdConverter
                 // in another element
                 else if (openingTags.Count < closingTags.Count)
                 {
-                    if (!(hasFragment && !foundTOCItem))
-                    {
-                        linkText = $"<a data-href=\"{mdTitle}\" href=\"{mdTitle}\" class=\"internal-link\" target=\"_blank\" rel=\"noopener\">{content}</a>";
-                    }
-                    else
+                    if (hasFragment && !foundTOCItem)
                     {
                         linkText = content;
                     }
-
-                    linksAtEndOfFile.Append($"\n[[{mdTitle}|{content}]]");
-
-                    /*
-                    if (foundTOCItem)
+                    else
                     {
-                        linkText += $"[^{footerIndex}]";
+                        linkText = $"<a data-href=\"{mdTitle}\" href=\"{mdTitle}\" class=\"internal-link\" target=\"_blank\" rel=\"noopener\">{content}</a>";
+                        linksAtEndOfFile.Append($"\n[[{mdTitle}|{content}]]");
                     }
-                    */
 
                     // Console.WriteLine("replaced href a");
                 }
@@ -563,14 +547,7 @@ public class MdConverter
 
                 if (isInHeading)
                 {
-                    // Console.WriteLine();
-                    // Console.WriteLine(content);
-                    // Console.WriteLine(linkText);
-                    // Console.WriteLine(match.Value.Length);
-                    // Console.WriteLine(nextLineStartIndex);
-
                     replacements.Add(new Replacement(content, match.Value.Length, match.Index));
-
                     replacements.Add(new Replacement($"\nLink from heading: {linkText}", 0, nextLineStartIndex));
                 }
                 else
@@ -591,9 +568,8 @@ public class MdConverter
 
         StringBuilder output = Replace(html, replacementsArr);
 
-        output.Append("\n\n").Append(linksAtEndOfFile);
-
-        output.Append("\n\n").Append(footer);
+        output.Append("\n\n").Append("## Md links for HTML links").Append(linksAtEndOfFile);
+        output.Append("\n\n").Append("## Footer\n").Append(footer);
 
         return output.ToString();
     }

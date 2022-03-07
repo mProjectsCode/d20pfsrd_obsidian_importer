@@ -16,17 +16,17 @@ public class NoteMetadata
     public string Url;
     public string WebTitle;
 
-    public NoteMetadata(string localPath)
+    public NoteMetadata(string localPath, string mappedLocalPath)
     {
-        LocalPathToFolder = PathHelper.TrimSlashes(localPath);
+        LocalPathToFolder = PathHelper.TrimSlashes(mappedLocalPath);
         LocalPathToHtml = PathHelper.Combine(Program.HtmlFolder, localPath, "index.html");
         LocalPathToJson = PathHelper.Combine(Program.HtmlFolder, localPath, "meta.json");
 
-        FileName = MdConverter.ConvertToMdTitle(localPath);
+        FileName = MdConverter.ConvertToMdTitle(mappedLocalPath);
         Title = MdConverter.GetDocumentHeadingFromMdTitle(FileName);
         Tags = FileName.Split('_')[..^1];
 
-        LocalPathToMarkdown = PathHelper.Combine(Program.MarkdownFolder, localPath, FileName + ".md");
+        LocalPathToMarkdown = PathHelper.Combine(Program.MarkdownFolder, mappedLocalPath, FileName + ".md");
 
         string meta = File.ReadAllText(Path.Combine(Program.RunLocation, LocalPathToJson));
         Page page = JsonSerializer.Deserialize<Page>(meta);
