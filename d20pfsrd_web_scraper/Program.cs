@@ -22,7 +22,7 @@ internal class Program
     public static string FileOverridesFolderName = "";
 
     public static string ScraperOutputLocation = "";
-    public static readonly string RunLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+    public static readonly string RunLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
 
 
     public static readonly ILoggerFactory LFactory = LoggerFactory.Create(builder =>
@@ -33,7 +33,7 @@ internal class Program
             .AddConsole();
     });
 
-    public static Config Config;
+    public static Config? Config;
 
     // A blacklist of domain that we do not want to scrap
     public static readonly string[] DomainBlackList =
@@ -55,6 +55,12 @@ internal class Program
 
     private static void Main(string[] args)
     {
+        if (RunLocation == "")
+        {
+            Console.WriteLine("Run location is null. The script will exit");
+        }
+        
+        
         Console.WriteLine("---");
         Console.WriteLine("d20pfsrd obsidian importer");
         Console.WriteLine("---");
