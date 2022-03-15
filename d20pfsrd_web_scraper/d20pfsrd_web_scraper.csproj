@@ -8,10 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="HtmlAgilityPack" Version="1.11.42"/>
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0-preview.1.22076.8"/>
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0-preview.1.22076.8"/>
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.1"/>
+        <PackageReference Include="HtmlAgilityPack" Version="1.11.42" />
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0-preview.1.22076.8" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0-preview.1.22076.8" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -22,13 +22,13 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Content Include="fileOverrides\5esrd_overrides\home.md"/>
-        <Content Include="fileOverrides\5esrd_overrides\_readme.md"/>
-        <Content Include="fileOverrides\d20pfsrd_overrides\home.md"/>
-        <Content Include="fileOverrides\d20pfsrd_overrides\_readme.md"/>
+        <Content Include="fileOverrides\5esrd_overrides\home.md" />
+        <Content Include="fileOverrides\5esrd_overrides\_readme.md" />
+        <Content Include="fileOverrides\d20pfsrd_overrides\home.md" />
+        <Content Include="fileOverrides\d20pfsrd_overrides\_readme.md" />
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Logger"/>
+        <Folder Include="Logger" />
     </ItemGroup>
 </Project>

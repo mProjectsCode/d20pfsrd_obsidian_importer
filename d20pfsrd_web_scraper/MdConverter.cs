@@ -568,9 +568,15 @@ public class MdConverter
 
         StringBuilder output = Replace(html, replacementsArr);
 
-        output.Append("\n\n").Append("## Md links for HTML links").Append(linksAtEndOfFile);
-        output.Append("\n\n").Append("## Footer\n").Append(footer);
-
+        if (linksAtEndOfFile.Length != 0)
+        {
+            output.Append("\n\n").Append("## Md links for HTML links").Append(linksAtEndOfFile);
+        }
+        if (footer.Length != 0) 
+        {
+            output.Append("\n\n").Append("## Footer\n").Append(footer);
+        }
+        
         return output.ToString();
     }
 
